@@ -1,0 +1,34 @@
+paths:
+  db_path: ./racing.duckdb
+  raw_data_dir: ./data/raw
+  betfair_historical_dir: ./data/raw/betfair_historical
+  odds_snapshots_dir: ./data/raw/odds_snapshots
+  sporting_life_raw_dir: ./data/raw/sporting_life
+  logs_dir: ./logs
+decision:
+  cutoff_hour_utc: 21
+  morning_check_hour_utc: 9
+betfair:
+  countries:
+    - GB
+    - IE
+  market_type: WIN
+  max_marketbook_batch_size: 40
+quality:
+  leakage_hard_fail: true
+  odds_min: 1.01
+  odds_max: 1000
+
+dq_thresholds:
+  pre_2017:
+    max_missing_trainer_pct: 16.0
+    max_missing_jockey_pct: 16.0
+    max_zero_coverage_standard_races: 2000
+  from_2017:
+    max_missing_trainer_pct: 5.0
+    max_missing_jockey_pct: 5.0
+    max_zero_coverage_standard_races: 100
+  from_2019:
+    max_missing_trainer_pct: 3.0
+    max_missing_jockey_pct: 3.0
+    max_zero_coverage_standard_races: 0

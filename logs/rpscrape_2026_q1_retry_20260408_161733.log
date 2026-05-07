@@ -1,0 +1,16 @@
+[RETRY-RUN] month=03 region=gb type=jumps
+Resuming after https://www.racingpost.com/results/44/plumpton/2026-03-09/913304
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2026_03_01_2026_03_31.csv
+[RETRY-OK ] month=03 region=gb type=jumps
+[RETRY-RUN] month=03 region=ire type=flat
+Resuming after https://www.racingpost.com/results/1138/dundalk-aw/2026-03-20/915793
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2026_03_01_2026_03_31.csv
+[RETRY-OK ] month=03 region=ire type=flat
+[RETRY-RUN] month=03 region=ire type=jumps
+Resuming after https://www.racingpost.com/results/193/navan/2026-03-21/915879
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2026_03_01_2026_03_31.csv
+[RETRY-OK ] month=03 region=ire type=jumps
+RETRY-SUMMARY total=3 failed=0 log=logs/rpscrape_2026_q1_retry_20260408_161733.log

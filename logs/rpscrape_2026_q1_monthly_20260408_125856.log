@@ -1,0 +1,190 @@
+[RUN] month=01 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2026_01_01_2026_01_31.csv
+[OK ] month=01 region=gb type=flat
+[RUN] month=01 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2026_01_01_2026_01_31.csv
+[OK ] month=01 region=gb type=jumps
+[RUN] month=01 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2026_01_01_2026_01_31.csv
+[OK ] month=01 region=ire type=flat
+[RUN] month=01 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2026_01_01_2026_01_31.csv
+[OK ] month=01 region=ire type=jumps
+[RUN] month=02 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2026_02_01_2026_02_28.csv
+[OK ] month=02 region=gb type=flat
+[RUN] month=02 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2026_02_01_2026_02_28.csv
+[OK ] month=02 region=gb type=jumps
+[RUN] month=02 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2026_02_01_2026_02_28.csv
+[OK ] month=02 region=ire type=flat
+[RUN] month=02 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2026_02_01_2026_02_28.csv
+[OK ] month=02 region=ire type=jumps
+[RUN] month=03 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2026_03_01_2026_03_31.csv
+[OK ] month=03 region=gb type=flat
+[RUN] month=03 region=gb type=jumps
+Scraping races
+Traceback (most recent call last):
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/requests/session.py", line 732, in _request_once
+    c.perform()
+    ~~~~~~~~~^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/curl.py", line 505, in perform
+    self._check_error(ret, "perform")
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/curl.py", line 269, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (28) Operation timed out after 459727 milliseconds with 0 bytes received. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/scripts/rpscrape.py", line 285, in <module>
+    main()
+    ~~~~^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/scripts/rpscrape.py", line 281, in main
+    scrape_races(race_urls, paths, args.race_type, client, file_writer)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/scripts/rpscrape.py", line 207, in scrape_races
+    _, response = client.get(url)
+                  ~~~~~~~~~~^^^^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/scripts/utils/network.py", line 59, in get
+    response = self.session.get(
+        url,
+        allow_redirects=allow_redirects,
+        timeout=self.timeout,
+    )
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/requests/session.py", line 842, in get
+    return self.request(method="GET", url=url, **kwargs)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/requests/session.py", line 795, in request
+    return self._request_once(
+           ~~~~~~~~~~~~~~~~~~^
+        method=method,
+        ^^^^^^^^^^^^^^
+    ...<32 lines>...
+        discard_cookies=discard_cookies,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/requests/session.py", line 739, in _request_once
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.Timeout: Failed to perform, curl: (28) Operation timed out after 459727 milliseconds with 0 bytes received. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+[ERR] month=03 region=gb type=jumps
+[RUN] month=03 region=ire type=flat
+Scraping races
+Traceback (most recent call last):
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/requests/session.py", line 732, in _request_once
+    c.perform()
+    ~~~~~~~~~^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/curl.py", line 505, in perform
+    self._check_error(ret, "perform")
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/curl.py", line 269, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (28) Operation timed out after 148317 milliseconds with 0 bytes received. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/scripts/rpscrape.py", line 285, in <module>
+    main()
+    ~~~~^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/scripts/rpscrape.py", line 281, in main
+    scrape_races(race_urls, paths, args.race_type, client, file_writer)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/scripts/rpscrape.py", line 207, in scrape_races
+    _, response = client.get(url)
+                  ~~~~~~~~~~^^^^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/scripts/utils/network.py", line 59, in get
+    response = self.session.get(
+        url,
+        allow_redirects=allow_redirects,
+        timeout=self.timeout,
+    )
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/requests/session.py", line 842, in get
+    return self.request(method="GET", url=url, **kwargs)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/requests/session.py", line 795, in request
+    return self._request_once(
+           ~~~~~~~~~~~~~~~~~~^
+        method=method,
+        ^^^^^^^^^^^^^^
+    ...<32 lines>...
+        discard_cookies=discard_cookies,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/requests/session.py", line 739, in _request_once
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.Timeout: Failed to perform, curl: (28) Operation timed out after 148317 milliseconds with 0 bytes received. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+[ERR] month=03 region=ire type=flat
+[RUN] month=03 region=ire type=jumps
+Scraping races
+Traceback (most recent call last):
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/requests/session.py", line 732, in _request_once
+    c.perform()
+    ~~~~~~~~~^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/curl.py", line 505, in perform
+    self._check_error(ret, "perform")
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/curl.py", line 269, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (28) Operation timed out after 226249 milliseconds with 0 bytes received. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/scripts/rpscrape.py", line 285, in <module>
+    main()
+    ~~~~^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/scripts/rpscrape.py", line 281, in main
+    scrape_races(race_urls, paths, args.race_type, client, file_writer)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/scripts/rpscrape.py", line 207, in scrape_races
+    _, response = client.get(url)
+                  ~~~~~~~~~~^^^^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/scripts/utils/network.py", line 59, in get
+    response = self.session.get(
+        url,
+        allow_redirects=allow_redirects,
+        timeout=self.timeout,
+    )
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/requests/session.py", line 842, in get
+    return self.request(method="GET", url=url, **kwargs)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/requests/session.py", line 795, in request
+    return self._request_once(
+           ~~~~~~~~~~~~~~~~~~^
+        method=method,
+        ^^^^^^^^^^^^^^
+    ...<32 lines>...
+        discard_cookies=discard_cookies,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/alexanderchow/Documents/projects/racing_model/.venv/lib/python3.14/site-packages/curl_cffi/requests/session.py", line 739, in _request_once
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.Timeout: Failed to perform, curl: (28) Operation timed out after 226249 milliseconds with 0 bytes received. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+[ERR] month=03 region=ire type=jumps
+SUMMARY total=12 failed=3 log=/Users/alexanderchow/Documents/projects/racing_model/logs/rpscrape_2026_q1_monthly_20260408_125856.log

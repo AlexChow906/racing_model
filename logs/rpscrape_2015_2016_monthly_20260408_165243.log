@@ -1,0 +1,481 @@
+[RUN] year=2015 month=01 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2015_01_01_2015_01_31.csv
+[OK ] year=2015 month=01 region=gb type=flat
+[RUN] year=2015 month=01 region=gb type=jumps
+Resuming after https://www.racingpost.com/results/90/wincanton/2015-01-29/617031
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2015_01_01_2015_01_31.csv
+[OK ] year=2015 month=01 region=gb type=jumps
+[RUN] year=2015 month=01 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2015_01_01_2015_01_31.csv
+[OK ] year=2015 month=01 region=ire type=flat
+[RUN] year=2015 month=01 region=ire type=jumps
+Resuming after https://www.racingpost.com/results/182/fairyhouse/2015-01-21/617647
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2015_01_01_2015_01_31.csv
+[OK ] year=2015 month=01 region=ire type=jumps
+[RUN] year=2015 month=02 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2015_02_01_2015_02_28.csv
+[OK ] year=2015 month=02 region=gb type=flat
+[RUN] year=2015 month=02 region=gb type=jumps
+Resuming after https://www.racingpost.com/results/36/newbury/2015-02-28/618529
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2015_02_01_2015_02_28.csv
+[OK ] year=2015 month=02 region=gb type=jumps
+[RUN] year=2015 month=02 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2015_02_01_2015_02_28.csv
+[OK ] year=2015 month=02 region=ire type=flat
+[RUN] year=2015 month=02 region=ire type=jumps
+Resuming after https://www.racingpost.com/results/187/leopardstown/2015-02-28/619995
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2015_02_01_2015_02_28.csv
+[OK ] year=2015 month=02 region=ire type=jumps
+[RUN] year=2015 month=03 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2015_03_01_2015_03_31.csv
+[OK ] year=2015 month=03 region=gb type=flat
+[RUN] year=2015 month=03 region=gb type=jumps
+Resuming after https://www.racingpost.com/results/26/huntingdon/2015-03-31/620683
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2015_03_01_2015_03_31.csv
+[OK ] year=2015 month=03 region=gb type=jumps
+[RUN] year=2015 month=03 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2015_03_01_2015_03_31.csv
+[OK ] year=2015 month=03 region=ire type=flat
+[RUN] year=2015 month=03 region=ire type=jumps
+Resuming after https://www.racingpost.com/results/188/limerick/2015-03-29/622132
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2015_03_01_2015_03_31.csv
+[OK ] year=2015 month=03 region=ire type=jumps
+[RUN] year=2015 month=04 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2015_04_01_2015_04_30.csv
+[OK ] year=2015 month=04 region=gb type=flat
+[RUN] year=2015 month=04 region=gb type=jumps
+Resuming after https://www.racingpost.com/results/83/towcester/2015-04-30/623143
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2015_04_01_2015_04_30.csv
+[OK ] year=2015 month=04 region=gb type=jumps
+[RUN] year=2015 month=04 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2015_04_01_2015_04_30.csv
+[OK ] year=2015 month=04 region=ire type=flat
+[RUN] year=2015 month=04 region=ire type=jumps
+Resuming after https://www.racingpost.com/results/195/punchestown/2015-04-30/625319
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2015_04_01_2015_04_30.csv
+[OK ] year=2015 month=04 region=ire type=jumps
+[RUN] year=2015 month=05 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2015_05_01_2015_05_31.csv
+[OK ] year=2015 month=05 region=gb type=flat
+[RUN] year=2015 month=05 region=gb type=jumps
+Resuming after https://www.racingpost.com/results/18/fakenham/2015-05-31/626036
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2015_05_01_2015_05_31.csv
+[OK ] year=2015 month=05 region=gb type=jumps
+[RUN] year=2015 month=05 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2015_05_01_2015_05_31.csv
+[OK ] year=2015 month=05 region=ire type=flat
+[RUN] year=2015 month=05 region=ire type=jumps
+Resuming after https://www.racingpost.com/results/196/roscommon/2015-05-18/627195
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2015_05_01_2015_05_31.csv
+[OK ] year=2015 month=05 region=ire type=jumps
+[RUN] year=2015 month=06 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2015_06_01_2015_06_30.csv
+[OK ] year=2015 month=06 region=gb type=flat
+[RUN] year=2015 month=06 region=gb type=jumps
+Resuming after https://www.racingpost.com/results/67/stratford/2015-06-30/629022
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2015_06_01_2015_06_30.csv
+[OK ] year=2015 month=06 region=gb type=jumps
+[RUN] year=2015 month=06 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2015_06_01_2015_06_30.csv
+[OK ] year=2015 month=06 region=ire type=flat
+[RUN] year=2015 month=06 region=ire type=jumps
+Resuming after https://www.racingpost.com/results/180/down-royal/2015-06-19/629745
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2015_06_01_2015_06_30.csv
+[OK ] year=2015 month=06 region=ire type=jumps
+[RUN] year=2015 month=07 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2015_07_01_2015_07_31.csv
+[OK ] year=2015 month=07 region=gb type=flat
+[RUN] year=2015 month=07 region=gb type=jumps
+Resuming after https://www.racingpost.com/results/101/worcester/2015-07-15/630028
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2015_07_01_2015_07_31.csv
+[OK ] year=2015 month=07 region=gb type=jumps
+[RUN] year=2015 month=07 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2015_07_01_2015_07_31.csv
+[OK ] year=2015 month=07 region=ire type=flat
+[RUN] year=2015 month=07 region=ire type=jumps
+Resuming after https://www.racingpost.com/results/596/cork/2015-07-10/631173
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2015_07_01_2015_07_31.csv
+[OK ] year=2015 month=07 region=ire type=jumps
+[RUN] year=2015 month=08 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2015_08_01_2015_08_31.csv
+[OK ] year=2015 month=08 region=gb type=flat
+[RUN] year=2015 month=08 region=gb type=jumps
+Resuming after https://www.racingpost.com/results/20/fontwell/2015-08-13/631867
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2015_08_01_2015_08_31.csv
+[OK ] year=2015 month=08 region=gb type=jumps
+[RUN] year=2015 month=08 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2015_08_01_2015_08_31.csv
+[OK ] year=2015 month=08 region=ire type=flat
+[RUN] year=2015 month=08 region=ire type=jumps
+Resuming after https://www.racingpost.com/results/200/tramore/2015-08-16/633268
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2015_08_01_2015_08_31.csv
+[OK ] year=2015 month=08 region=ire type=jumps
+[RUN] year=2015 month=09 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2015_09_01_2015_09_30.csv
+[OK ] year=2015 month=09 region=gb type=flat
+[RUN] year=2015 month=09 region=gb type=jumps
+Resuming after https://www.racingpost.com/results/57/sedgefield/2015-09-03/633125
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2015_09_01_2015_09_30.csv
+[OK ] year=2015 month=09 region=gb type=jumps
+[RUN] year=2015 month=09 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2015_09_01_2015_09_30.csv
+[OK ] year=2015 month=09 region=ire type=flat
+[RUN] year=2015 month=09 region=ire type=jumps
+Resuming after https://www.racingpost.com/results/190/listowel/2015-09-13/634851
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2015_09_01_2015_09_30.csv
+[OK ] year=2015 month=09 region=ire type=jumps
+[RUN] year=2015 month=10 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2015_10_01_2015_10_31.csv
+[OK ] year=2015 month=10 region=gb type=flat
+[RUN] year=2015 month=10 region=gb type=jumps
+Resuming after https://www.racingpost.com/results/34/ludlow/2015-10-07/635003
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2015_10_01_2015_10_31.csv
+[OK ] year=2015 month=10 region=gb type=jumps
+[RUN] year=2015 month=10 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2015_10_01_2015_10_31.csv
+[OK ] year=2015 month=10 region=ire type=flat
+[RUN] year=2015 month=10 region=ire type=jumps
+Resuming after https://www.racingpost.com/results/596/cork/2015-10-18/637113
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2015_10_01_2015_10_31.csv
+[OK ] year=2015 month=10 region=ire type=jumps
+[RUN] year=2015 month=11 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2015_11_01_2015_11_30.csv
+[OK ] year=2015 month=11 region=gb type=flat
+[RUN] year=2015 month=11 region=gb type=jumps
+Resuming after https://www.racingpost.com/results/14/exeter/2015-11-03/636796
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2015_11_01_2015_11_30.csv
+[OK ] year=2015 month=11 region=gb type=jumps
+[RUN] year=2015 month=11 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2015_11_01_2015_11_30.csv
+[OK ] year=2015 month=11 region=ire type=flat
+[RUN] year=2015 month=11 region=ire type=jumps
+Resuming after https://www.racingpost.com/results/182/fairyhouse/2015-11-29/639000
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2015_11_01_2015_11_30.csv
+[OK ] year=2015 month=11 region=ire type=jumps
+[RUN] year=2015 month=12 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2015_12_01_2015_12_31.csv
+[OK ] year=2015 month=12 region=gb type=flat
+[RUN] year=2015 month=12 region=gb type=jumps
+Resuming after https://www.racingpost.com/results/30/leicester/2015-12-09/639202
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2015_12_01_2015_12_31.csv
+[OK ] year=2015 month=12 region=gb type=jumps
+[RUN] year=2015 month=12 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2015_12_01_2015_12_31.csv
+[OK ] year=2015 month=12 region=ire type=flat
+[RUN] year=2015 month=12 region=ire type=jumps
+Resuming after https://www.racingpost.com/results/195/punchestown/2015-12-31/641880
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2015_12_01_2015_12_31.csv
+[OK ] year=2015 month=12 region=ire type=jumps
+[RUN] year=2016 month=01 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2016_01_01_2016_01_31.csv
+[OK ] year=2016 month=01 region=gb type=flat
+[RUN] year=2016 month=01 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2016_01_01_2016_01_31.csv
+[OK ] year=2016 month=01 region=gb type=jumps
+[RUN] year=2016 month=01 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2016_01_01_2016_01_31.csv
+[OK ] year=2016 month=01 region=ire type=flat
+[RUN] year=2016 month=01 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2016_01_01_2016_01_31.csv
+[OK ] year=2016 month=01 region=ire type=jumps
+[RUN] year=2016 month=02 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2016_02_01_2016_02_29.csv
+[OK ] year=2016 month=02 region=gb type=flat
+[RUN] year=2016 month=02 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2016_02_01_2016_02_29.csv
+[OK ] year=2016 month=02 region=gb type=jumps
+[RUN] year=2016 month=02 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2016_02_01_2016_02_29.csv
+[OK ] year=2016 month=02 region=ire type=flat
+[RUN] year=2016 month=02 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2016_02_01_2016_02_29.csv
+[OK ] year=2016 month=02 region=ire type=jumps
+[RUN] year=2016 month=03 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2016_03_01_2016_03_31.csv
+[OK ] year=2016 month=03 region=gb type=flat
+[RUN] year=2016 month=03 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2016_03_01_2016_03_31.csv
+[OK ] year=2016 month=03 region=gb type=jumps
+[RUN] year=2016 month=03 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2016_03_01_2016_03_31.csv
+[OK ] year=2016 month=03 region=ire type=flat
+[RUN] year=2016 month=03 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2016_03_01_2016_03_31.csv
+[OK ] year=2016 month=03 region=ire type=jumps
+[RUN] year=2016 month=04 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2016_04_01_2016_04_30.csv
+[OK ] year=2016 month=04 region=gb type=flat
+[RUN] year=2016 month=04 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2016_04_01_2016_04_30.csv
+[OK ] year=2016 month=04 region=gb type=jumps
+[RUN] year=2016 month=04 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2016_04_01_2016_04_30.csv
+[OK ] year=2016 month=04 region=ire type=flat
+[RUN] year=2016 month=04 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2016_04_01_2016_04_30.csv
+[OK ] year=2016 month=04 region=ire type=jumps
+[RUN] year=2016 month=05 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2016_05_01_2016_05_31.csv
+[OK ] year=2016 month=05 region=gb type=flat
+[RUN] year=2016 month=05 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2016_05_01_2016_05_31.csv
+[OK ] year=2016 month=05 region=gb type=jumps
+[RUN] year=2016 month=05 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2016_05_01_2016_05_31.csv
+[OK ] year=2016 month=05 region=ire type=flat
+[RUN] year=2016 month=05 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2016_05_01_2016_05_31.csv
+[OK ] year=2016 month=05 region=ire type=jumps
+[RUN] year=2016 month=06 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2016_06_01_2016_06_30.csv
+[OK ] year=2016 month=06 region=gb type=flat
+[RUN] year=2016 month=06 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2016_06_01_2016_06_30.csv
+[OK ] year=2016 month=06 region=gb type=jumps
+[RUN] year=2016 month=06 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2016_06_01_2016_06_30.csv
+[OK ] year=2016 month=06 region=ire type=flat
+[RUN] year=2016 month=06 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2016_06_01_2016_06_30.csv
+[OK ] year=2016 month=06 region=ire type=jumps
+[RUN] year=2016 month=07 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2016_07_01_2016_07_31.csv
+[OK ] year=2016 month=07 region=gb type=flat
+[RUN] year=2016 month=07 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2016_07_01_2016_07_31.csv
+[OK ] year=2016 month=07 region=gb type=jumps
+[RUN] year=2016 month=07 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2016_07_01_2016_07_31.csv
+[OK ] year=2016 month=07 region=ire type=flat
+[RUN] year=2016 month=07 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2016_07_01_2016_07_31.csv
+[OK ] year=2016 month=07 region=ire type=jumps
+[RUN] year=2016 month=08 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2016_08_01_2016_08_31.csv
+[OK ] year=2016 month=08 region=gb type=flat
+[RUN] year=2016 month=08 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2016_08_01_2016_08_31.csv
+[OK ] year=2016 month=08 region=gb type=jumps
+[RUN] year=2016 month=08 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2016_08_01_2016_08_31.csv
+[OK ] year=2016 month=08 region=ire type=flat
+[RUN] year=2016 month=08 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2016_08_01_2016_08_31.csv
+[OK ] year=2016 month=08 region=ire type=jumps
+[RUN] year=2016 month=09 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2016_09_01_2016_09_30.csv
+[OK ] year=2016 month=09 region=gb type=flat
+[RUN] year=2016 month=09 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2016_09_01_2016_09_30.csv
+[OK ] year=2016 month=09 region=gb type=jumps
+[RUN] year=2016 month=09 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2016_09_01_2016_09_30.csv
+[OK ] year=2016 month=09 region=ire type=flat
+[RUN] year=2016 month=09 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2016_09_01_2016_09_30.csv
+[OK ] year=2016 month=09 region=ire type=jumps
+[RUN] year=2016 month=10 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2016_10_01_2016_10_31.csv
+[OK ] year=2016 month=10 region=gb type=flat
+[RUN] year=2016 month=10 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2016_10_01_2016_10_31.csv
+[OK ] year=2016 month=10 region=gb type=jumps
+[RUN] year=2016 month=10 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2016_10_01_2016_10_31.csv
+[OK ] year=2016 month=10 region=ire type=flat
+[RUN] year=2016 month=10 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2016_10_01_2016_10_31.csv
+[OK ] year=2016 month=10 region=ire type=jumps
+[RUN] year=2016 month=11 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2016_11_01_2016_11_30.csv
+[OK ] year=2016 month=11 region=gb type=flat
+[RUN] year=2016 month=11 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2016_11_01_2016_11_30.csv
+[OK ] year=2016 month=11 region=gb type=jumps
+[RUN] year=2016 month=11 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2016_11_01_2016_11_30.csv
+[OK ] year=2016 month=11 region=ire type=flat
+[RUN] year=2016 month=11 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2016_11_01_2016_11_30.csv
+[OK ] year=2016 month=11 region=ire type=jumps
+[RUN] year=2016 month=12 region=gb type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/flat/2016_12_01_2016_12_31.csv
+[OK ] year=2016 month=12 region=gb type=flat
+[RUN] year=2016 month=12 region=gb type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/gb/jumps/2016_12_01_2016_12_31.csv
+[OK ] year=2016 month=12 region=gb type=jumps
+[RUN] year=2016 month=12 region=ire type=flat
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/flat/2016_12_01_2016_12_31.csv
+[OK ] year=2016 month=12 region=ire type=flat
+[RUN] year=2016 month=12 region=ire type=jumps
+Scraping races
+Finished scraping.
+OUTPUT_CSV=/Users/alexanderchow/Documents/projects/racing_model/data/raw/rpscrape_repo/data/region/ire/jumps/2016_12_01_2016_12_31.csv
+[OK ] year=2016 month=12 region=ire type=jumps
+SUMMARY total=96 failed=0 log=/Users/alexanderchow/Documents/projects/racing_model/logs/rpscrape_2015_2016_monthly_20260408_165243.log fail_log=/Users/alexanderchow/Documents/projects/racing_model/logs/rpscrape_2015_2016_monthly_failures_20260408_165243.log

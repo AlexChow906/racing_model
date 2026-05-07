@@ -1,0 +1,28 @@
+[LightGBM] [Info] Auto-choosing row-wise multi-threading, the overhead of testing was 0.017738 seconds.
+You can set `force_row_wise=true` to remove the overhead.
+And if memory is not enough, you can set `force_col_wise=true`.
+[LightGBM] [Info] Total Bins 5406
+[LightGBM] [Info] Number of data points in the train set: 483552, number of used features: 45
+Training until validation scores don't improve for 100 rounds
+[100]	valid_0's ndcg@1: 0.255881	valid_0's ndcg@3: 0.433595
+Early stopping, best iteration is:
+[46]	valid_0's ndcg@1: 0.255347	valid_0's ndcg@3: 0.435461
+Model saved: models/20260410_1201_lgbm_window_a.lgbm
+Best iteration: 46
+Final validation NDCG@1: 0.2552703941338222
+Final validation NDCG@3: 0.4333750835856728
+Brier score: 0.0907683259836214
+Log loss: 0.3175349673478611
+Top pick win rate: 0.2538955087076077
+Calibration table:
+                           bin  count  avg_pred  empirical_win_rate
+(0.011099999999999999, 0.0527]  12119  0.041842            0.026075
+               (0.0527, 0.065]  12118  0.059249            0.042086
+               (0.065, 0.0743]  12118  0.069760            0.058260
+              (0.0743, 0.0834]  12118  0.078859            0.071299
+              (0.0834, 0.0935]  12119  0.088341            0.081690
+               (0.0935, 0.105]  12118  0.099088            0.099769
+                 (0.105, 0.12]  12118  0.112088            0.111487
+                 (0.12, 0.141]  12118  0.129917            0.133768
+                 (0.141, 0.18]  12118  0.158357            0.176597
+                  (0.18, 0.79]  12119  0.242844            0.277746

@@ -1,0 +1,27 @@
+value_engine:
+  edge_threshold: 0.02
+  min_decimal_odds: 1.5
+  max_decimal_odds: 30.0
+  min_liquidity_gbp: 50.0
+  max_spread_ticks: 3
+staking:
+  method: fractional_kelly
+  kelly_fraction: 0.25
+  max_stake_fraction_of_bankroll: 0.02
+risk:
+  daily_max_drawdown_fraction: 0.05
+  max_open_exposure_fraction: 0.1
+validation:
+  walk_forward_windows:
+    - train_start: "2018-01-01"
+      train_end: "2021-12-31"
+      valid_start: "2022-01-01"
+      valid_end: "2022-12-31"
+      test_start: "2023-01-01"
+      test_end: "2023-12-31"
+    - train_start: "2018-01-01"
+      train_end: "2022-12-31"
+      valid_start: "2023-01-01"
+      valid_end: "2023-12-31"
+      test_start: "2024-01-01"
+      test_end: "2024-12-31"

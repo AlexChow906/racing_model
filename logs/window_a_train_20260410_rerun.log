@@ -1,0 +1,41 @@
+Target distribution in training set:
+0    432542
+1     51010
+Name: count, dtype: int64
+Win rate: 0.1055
+Total groups (races): 51109
+Total rows: 483552
+Average field size: 9.5
+Min group size: 2
+Max group size: 40
+[LightGBM] [Info] Auto-choosing row-wise multi-threading, the overhead of testing was 0.018341 seconds.
+You can set `force_row_wise=true` to remove the overhead.
+And if memory is not enough, you can set `force_col_wise=true`.
+[LightGBM] [Info] Total Bins 5403
+[LightGBM] [Info] Number of data points in the train set: 483552, number of used features: 45
+Training until validation scores don't improve for 200 rounds
+[50]	valid_0's ndcg@1: 0.252521	valid_0's ndcg@3: 0.433854
+[100]	valid_0's ndcg@1: 0.254583	valid_0's ndcg@3: 0.432551
+[150]	valid_0's ndcg@1: 0.252597	valid_0's ndcg@3: 0.433373
+[200]	valid_0's ndcg@1: 0.253132	valid_0's ndcg@3: 0.431672
+Early stopping, best iteration is:
+[49]	valid_0's ndcg@1: 0.252673	valid_0's ndcg@3: 0.433901
+Model saved: models/20260410_1210_lgbm_window_a.lgbm
+Best iteration: 49
+Final validation NDCG@1: 0.25458295142071496
+Final validation NDCG@3: 0.43279308347710066
+Brier score: 0.09283751460688329
+Log loss: 0.32635793858404016
+Top pick win rate: 0.2512221203788573
+Calibration table:
+             bin  count  avg_pred  empirical_win_rate
+(0.0223, 0.0611]  12119  0.051458            0.038204
+(0.0611, 0.0711]  12118  0.066437            0.055537
+(0.0711, 0.0788]  12118  0.074859            0.069896
+(0.0788, 0.0872]  12118  0.083053            0.080129
+(0.0872, 0.0963]  12119  0.091592            0.088621
+ (0.0963, 0.107]  12118  0.101218            0.095148
+  (0.107, 0.121]  12118  0.112921            0.120482
+   (0.121, 0.14]  12118  0.128833            0.131787
+   (0.14, 0.169]  12118  0.152724            0.159102
+  (0.169, 0.585]  12119  0.217252            0.239871

@@ -1,0 +1,44 @@
+decision_cutoff_minutes: 60
+snapshot_minutes_before_off:
+  - 180
+  - 120
+  - 90
+  - 60
+  - 45
+  - 30
+  - 15
+  - 5
+sources:
+  betfair_exchange:
+    enabled: true
+    method: api
+    notes: "Preferred source for legal live odds and historical market depth."
+    credentials_env:
+      app_key: BETFAIR_APP_KEY
+      username: BETFAIR_USERNAME
+      password: BETFAIR_PASSWORD
+      cert_file: BETFAIR_CERT_FILE
+      key_file: BETFAIR_KEY_FILE
+  sporting_life:
+    enabled: false
+    method: scrape
+    notes: "Use only if terms allow."
+    base_url: "https://www.sportinglife.com/racing"
+  at_the_races:
+    enabled: false
+    method: scrape
+    notes: "Use only if terms allow."
+    base_url: "https://www.attheraces.com/racecards"
+  bha:
+    enabled: true
+    method: public_data
+    notes: "Official results/ratings where publicly available."
+  historical_dumps:
+    enabled: true
+    method: file_import
+    notes: "CSV imports from verified free datasets (Kaggle/GitHub)."
+paths:
+  raw_betfair_parquet_root: "betfair_odds_raw"
+  duckdb_file: "racing.duckdb"
+  model_dir: "models"
+  logs_dir: "logs"

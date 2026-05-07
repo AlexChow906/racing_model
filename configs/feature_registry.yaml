@@ -1,0 +1,41 @@
+# Feature governance registry
+# Keep all feature timestamps strictly before decision_cutoff_utc
+
+horse_form_last_5_win_rate:
+  definition: "Horse win rate over last 5 completed runs"
+  source_tables: [horse_history]
+  timestamp_logic: "event_timestamp_utc < decision_cutoff_utc"
+  expected_range: [0.0, 1.0]
+  null_policy: "impute_with_group_mean"
+  leakage_risk: LOW
+  first_introduced: v1.0
+
+trainer_90d_win_rate:
+  definition: "Trainer strike rate over previous 90 days"
+  source_tables: [trainer_history]
+  timestamp_logic: "event_timestamp_utc < decision_cutoff_utc"
+  expected_range: [0.0, 1.0]
+  null_policy: "impute_with_global_mean"
+  leakage_risk: LOW
+  first_introduced: v1.0
+
+jockey_90d_win_rate:
+  definition: "Jockey strike rate over previous 90 days"
+  source_tables: [jockey_history]
+  timestamp_logic: "event_timestamp_utc < decision_cutoff_utc"
+  expected_range: [0.0, 1.0]
+  null_policy: "impute_with_global_mean"
+  leakage_risk: LOW
+  first_introduced: v1.0
+
+trainer_is_unknown:
+  definition: "1 if trainer_name is NULL or unknown, 0 otherwise"
+  source_tables: [runners]
+  null_policy: "never null - always 0 or 1"
+  leakage_risk: NONE
+
+jockey_is_unknown:
+  definition: "1 if jockey_name is NULL or unknown, 0 otherwise"
+  source_tables: [runners]
+  null_policy: "never null - always 0 or 1"
+  leakage_risk: NONE

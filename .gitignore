@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.*
+!.env.example
+
+# Local DB and artifacts
+*.duckdb
+*.duckdb.tmp/
+*.duckdb.wal
+*.duckdb-journal
+models/*.pkl
+logs/*.csv
+logs/*.json
+logs/*_latest.txt
+
+# OS/editor
+.DS_Store
+.vscode/
+
+# Data
+betfair_odds_raw/**/*.tmp
+data/raw/
+
+# Betfair local TLS files
+client-*.key
+client-*.crt

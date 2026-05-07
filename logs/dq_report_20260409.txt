@@ -1,0 +1,15 @@
+Data Quality Report
+Generated UTC: 2026-04-09T17:39:31.605635+00:00
+
+PASS | check_no_missing_keys | failing_count=0 | Missing race_id/runner_id across core tables
+PASS | check_timestamp_range | failing_count=0 | event_timestamp_utc outside expected range
+PASS | check_referential_integrity | failing_count=0 | results without races parent
+PASS | check_runner_integrity | failing_count=0 | results without runners parent
+PASS | check_single_winner_per_race | failing_count=0 | races with implausible winner counts (>2); allows dead-heats
+PASS | check_races_have_runners | failing_count=0 | races with zero runners
+PASS | check_odds_range | failing_count=0 | odds outside [1.01, 1000]
+PASS | check_field_size_consistency | failing_count=0 | field_size differs from runner count
+PASS | check_no_duplicate_races | failing_count=0 | duplicate race_id values in races
+PASS | check_history_timestamps | failing_count=0 | horse_history.event_timestamp_utc must equal races.scheduled_off_utc
+PASS | check_trainer_jockey_missing_rate | failing_count=0 | standard_runners=1347958; missing_trainer=3684 (0.27% <= 16.00%); missing_jockey=3684 (0.27% <= 16.00%)
+PASS | check_zero_coverage_standard_races | failing_count=124 | standard races with zero trainer+jockey coverage <= 2000; race_ids=bfsp_256059582_win,bfsp_256059572_win,bfsp_256146634_win,bfsp_256051553_win,bfsp_256051601_win,bfsp_256051653_win,bfsp_256051595_win,bfsp_256095761_win,bfsp_256095715_win,bfsp_143164154_win,bfsp_145805581_win,bfsp_146903040_win,bfsp_256059597_win,bfsp_256097350_win,bfsp_256146649_win,bfsp_256146614_win,bfsp_256146644_win,bfsp_256146629_win,bfsp_256051561_win,bfsp_256051661_win...(+104 more)
