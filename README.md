@@ -4,13 +4,11 @@ Price-blind horse racing value model. Predicts win probabilities from fundamenta
 
 ## Results (Walk-Forward Validation, 2022-2026)
 
-Tuned params, edge>5% threshold, £1 level stakes:
-
-| Model | Windows | Total Bets | ROI | Profit |
-|-------|---------|-----------|-----|--------|
-| Flat  | 4/4 profitable | 53,905 | +7.69% | £+4,144 |
-| Jumps | 4/4 profitable | 39,153 | +11.58% | £+4,534 |
-| **Combined** | **8/8 profitable** | **93,058** | **+9.33%** | **£+8,678** |
+| Model | Total Bets | ROI |
+|-------|-----------|-----|
+| Flat  | 53,905 | +7.69% |
+| Jumps | 39,153 | +11.58% |
+| **Combined** | **93,058** | **+9.33%** |
 
 ## Data Sources
 
