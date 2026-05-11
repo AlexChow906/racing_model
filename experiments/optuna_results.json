@@ -1,0 +1,36 @@
+{
+  "flat": {
+    "best_params": {
+      "learning_rate": 0.04368730148937775,
+      "num_leaves": 57,
+      "min_child_samples": 69,
+      "subsample": 0.8805011077982975,
+      "colsample_bytree": 0.957359481455154,
+      "reg_alpha": 2.9350098802545344e-06,
+      "reg_lambda": 0.0013257149664657301,
+      "max_depth": 7,
+      "min_split_gain": 0.02777318163756272
+    },
+    "best_roi": 0.17915820650546424,
+    "best_top_pick": 0.2806187675786244,
+    "best_pnl": 2231.773778438568,
+    "best_n_bets": 12457
+  },
+  "jumps": {
+    "best_params": {
+      "learning_rate": 0.04460109232204896,
+      "num_leaves": 100,
+      "min_child_samples": 63,
+      "subsample": 0.7437963231791439,
+      "colsample_bytree": 0.5902984143118807,
+      "reg_alpha": 0.27191221018994793,
+      "reg_lambda": 0.004538042713948685,
+      "max_depth": 9,
+      "min_split_gain": 0.06106512120906561
+    },
+    "best_roi": 0.1464196150281788,
+    "best_top_pick": 0.304948908034462,
+    "best_pnl": 1240.9062373638153,
+    "best_n_bets": 8475
+  }
+}
