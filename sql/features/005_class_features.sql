@@ -31,7 +31,7 @@ SELECT
     END AS horse_class_delta,
     CASE
         WHEN f1.horse_avg_class_last_3 IS NULL THEN 0
-        WHEN (ra.race_class BETWEEN 1 AND 7) AND (ra.race_class - f1.horse_avg_class_last_3) >= 2 THEN 1
+        WHEN (ra.race_class BETWEEN 1 AND 7) AND (ra.race_class - f1.horse_avg_class_last_3) >= 1 THEN 1
         ELSE 0
     END AS is_class_dropper,
     COALESCE(f1.horse_first_time_headgear, 0) AS is_first_time_headgear,
