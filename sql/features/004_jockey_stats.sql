@@ -6,6 +6,7 @@ WITH base AS (
         COALESCE(NULLIF(TRIM(ru.jockey_name), ''), 'Unknown') AS jockey_name_norm,
         COALESCE(NULLIF(TRIM(ru.trainer_name), ''), 'Unknown') AS trainer_name_norm,
         lower(normalise_course(ra.course_name)) AS course_key,
+        ra.distance_furlongs,
         ra.decision_cutoff_utc,
         CASE WHEN COALESCE(NULLIF(TRIM(ru.jockey_name), ''), 'Unknown') = 'Unknown' THEN 1 ELSE 0 END AS jockey_is_unknown
     FROM runners ru
@@ -16,6 +17,7 @@ hist AS (
         COALESCE(NULLIF(TRIM(jh.jockey_name), ''), 'Unknown') AS jockey_name_norm,
         COALESCE(NULLIF(TRIM(th.trainer_name), ''), 'Unknown') AS trainer_name_norm,
         lower(normalise_course(ra.course_name)) AS course_key,
+        ra.distance_furlongs AS hist_distance,
         jh.scheduled_off_utc,
         CASE WHEN jh.won THEN 1.0 ELSE 0.0 END AS won_num
     FROM jockey_history jh
@@ -33,6 +35,9 @@ agg AS (
               AND h.course_key = b.course_key
         ) AS jockey_win_rate_course_90d,
         AVG(h.won_num) FILTER (
+            WHERE h.course_key = b.course_key
+        ) AS jockey_win_rate_course_alltime,
+        AVG(h.won_num) FILTER (
             WHERE h.scheduled_off_utc >= b.decision_cutoff_utc - INTERVAL 90 DAY
               AND h.trainer_name_norm = b.trainer_name_norm
         ) AS jockey_trainer_combo_win_rate,
@@ -43,6 +48,11 @@ agg AS (
         COUNT(*) FILTER (
             WHERE h.scheduled_off_utc >= b.decision_cutoff_utc - INTERVAL 90 DAY
         ) AS jockey_runs_90d,
+        -- Interaction: jockey × distance band
+        AVG(h.won_num) FILTER (
+            WHERE h.scheduled_off_utc >= b.decision_cutoff_utc - INTERVAL 90 DAY
+              AND ABS(COALESCE(h.hist_distance, 0.0) - COALESCE(b.distance_furlongs, 0.0)) <= 1.0
+        ) AS jockey_dist_win_rate_90d,
         MAX(h.scheduled_off_utc) AS latest_hist_ts
     FROM base b
     LEFT JOIN hist h
@@ -54,10 +64,11 @@ SELECT
     b.runner_id,
     b.race_id,
     a.jockey_win_rate_90d,
-    a.jockey_win_rate_course_90d,
+    COALESCE(a.jockey_win_rate_course_90d, a.jockey_win_rate_course_alltime) AS jockey_win_rate_course_90d,
     a.jockey_trainer_combo_win_rate,
     COALESCE(a.jockey_trainer_combo_runs, 0) AS jockey_trainer_combo_runs,
     COALESCE(a.jockey_runs_90d, 0) AS jockey_runs_90d,
+    a.jockey_dist_win_rate_90d,
     b.jockey_is_unknown,
     COALESCE(a.latest_hist_ts, b.decision_cutoff_utc - INTERVAL 1 SECOND) AS event_timestamp_utc,
     b.decision_cutoff_utc

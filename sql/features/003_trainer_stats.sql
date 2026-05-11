@@ -35,6 +35,9 @@ agg AS (
               AND h.course_key = b.course_key
         ) AS trainer_win_rate_course_90d,
         AVG(h.won_num) FILTER (
+            WHERE h.course_key = b.course_key
+        ) AS trainer_win_rate_course_alltime,
+        AVG(h.won_num) FILTER (
             WHERE h.scheduled_off_utc >= b.decision_cutoff_utc - INTERVAL 90 DAY
               AND COALESCE(h.going_code, '') = COALESCE(b.going_code, '')
         ) AS trainer_win_rate_going_90d,
@@ -42,6 +45,15 @@ agg AS (
             WHERE h.scheduled_off_utc >= b.decision_cutoff_utc - INTERVAL 90 DAY
               AND ABS(COALESCE(h.distance_furlongs, 0.0) - COALESCE(b.distance_furlongs, 0.0)) <= 1.0
         ) AS trainer_win_rate_dist_band_90d,
+        -- Interaction: trainer × course × going
+        AVG(h.won_num) FILTER (
+            WHERE h.course_key = b.course_key
+              AND COALESCE(h.going_code, '') = COALESCE(b.going_code, '')
+        ) AS trainer_course_going_win_rate,
+        -- Interaction: trainer × distance band
+        AVG(h.won_num) FILTER (
+            WHERE ABS(COALESCE(h.distance_furlongs, 0.0) - COALESCE(b.distance_furlongs, 0.0)) <= 1.0
+        ) AS trainer_dist_alltime_win_rate,
         COUNT(*) FILTER (
             WHERE h.scheduled_off_utc >= b.decision_cutoff_utc - INTERVAL 90 DAY
         ) AS trainer_runs_90d,
@@ -62,12 +74,14 @@ SELECT
     b.runner_id,
     b.race_id,
     a.trainer_win_rate_90d,
-    a.trainer_win_rate_course_90d,
+    COALESCE(a.trainer_win_rate_course_90d, a.trainer_win_rate_course_alltime) AS trainer_win_rate_course_90d,
     a.trainer_win_rate_going_90d,
     a.trainer_win_rate_dist_band_90d,
     COALESCE(a.trainer_runs_90d, 0) AS trainer_runs_90d,
     a.trainer_fresh_win_rate,
     COALESCE(a.trainer_fresh_runs, 0) AS trainer_fresh_runs,
+    a.trainer_course_going_win_rate,
+    a.trainer_dist_alltime_win_rate,
     b.trainer_is_unknown,
     COALESCE(a.latest_hist_ts, b.decision_cutoff_utc - INTERVAL 1 SECOND) AS event_timestamp_utc,
     b.decision_cutoff_utc
