@@ -41,6 +41,7 @@ prior AS (
         hh.course_id AS prior_course_id,
         REGEXP_REPLACE(hh.course_id, '_\d+\w*_\w+$', '') AS prior_course_venue,
         hh.official_rating,
+        hh.rpr AS prior_rpr,
         hh.race_class AS prior_race_class,
         hh.headgear AS prior_headgear,
         hh.field_size AS prior_field_size,
@@ -137,6 +138,11 @@ agg AS (
 
         MAX(official_rating)
             FILTER (WHERE rn_desc <= 5) AS horse_best_rpr_last_5,
+        MAX(prior_rpr)
+            FILTER (WHERE rn_desc <= 5) AS horse_best_rpr_rp_last_5,
+        AVG(prior_rpr::DOUBLE)
+            FILTER (WHERE rn_desc <= 3 AND prior_rpr IS NOT NULL) AS horse_avg_rpr_last_3,
+        MAX(prior_rpr) FILTER (WHERE rn_desc = 1) AS horse_last_rpr,
         AVG(prior_race_class::DOUBLE)
             FILTER (WHERE rn_desc <= 3) AS horse_avg_class_last_3,
         AVG(finishing_position::DOUBLE)
@@ -179,6 +185,9 @@ SELECT
     a.horse_improvement_index,
     a.horse_avg_position_pct_last_5,
     a.horse_best_rpr_last_5,
+    a.horse_best_rpr_rp_last_5,
+    a.horse_avg_rpr_last_3,
+    a.horse_last_rpr,
     a.horse_avg_class_last_3,
     CASE
         WHEN a.horse_avg_class_last_3 IS NULL OR ra.race_class IS NULL THEN NULL

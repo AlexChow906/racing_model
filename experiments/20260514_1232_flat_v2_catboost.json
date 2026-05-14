@@ -1,0 +1,51 @@
+{
+  "run_id": "20260514_1232_flat_v2_catboost",
+  "category": "flat_v2",
+  "engine": "catboost",
+  "calibration": "none",
+  "features": [
+    "horse_weighted_form",
+    "horse_form_trend",
+    "horse_class_delta",
+    "horse_days_since_last_run",
+    "horse_age",
+    "career_runs",
+    "position_consistency",
+    "rating_vs_top",
+    "rating_vs_field_avg",
+    "weight_vs_field_avg",
+    "weight_vs_top",
+    "prize_money_log",
+    "is_handicap",
+    "is_class_dropper",
+    "jockey_win_rate_course_90d",
+    "jockey_upgrade_signal",
+    "trainer_dist_alltime_win_rate",
+    "draw_position",
+    "draw_field_percentile",
+    "last_run_btn_lengths",
+    "collateral_beaten_place_rate",
+    "pace_pressure_index"
+  ],
+  "split": {
+    "train": [
+      "2015-01-01",
+      "2024-01-01"
+    ],
+    "cal": [
+      "2024-01-01",
+      "2025-01-01"
+    ],
+    "test": [
+      "2025-01-01",
+      "2027-01-01"
+    ]
+  },
+  "n_train": 654095,
+  "n_cal": 74787,
+  "n_test": 83724,
+  "best_iter": 774,
+  "test_brier": 0.09074729702342657,
+  "test_ll": 0.3170843356761707,
+  "test_top_pick": 0.2404304892932431
+}

@@ -12,9 +12,13 @@ __pycache__/
 *.duckdb.wal
 *.duckdb-journal
 models/*.pkl
+models/*.cbm
+models/*.lgbm
 logs/*.csv
 logs/*.json
 logs/*_latest.txt
+catboost_info/
+reports/
 
 # OS/editor
 .DS_Store

@@ -1,3 +1,4 @@
+import argparse
 import json
 import pickle
 from datetime import datetime
@@ -10,8 +11,12 @@ from sklearn.isotonic import IsotonicRegression
 from sklearn.metrics import brier_score_loss, log_loss
 
 from src.ingestion.db_connect import get_db
-from src.constants.features import EXCLUDE, FLAT_DROP, JUMPS_DROP
-from src.constants.windows import TRAIN_END, CAL_START, CAL_END, TEST_START, TEST_END
+from src.constants.features import EXCLUDE, FLAT_DROP, JUMPS_DROP, FLAT_V2_FEATURES
+from src.constants.params import CATBOOST_FLAT_PARAMS
+from src.constants.windows import (
+    TRAIN_END, CAL_START, CAL_END, TEST_START, TEST_END,
+    WALK_FORWARD_WINDOWS,
+)
 
 
 def load_data(start, end, race_category):
@@ -356,17 +361,362 @@ def run_value_analysis(df_test, test_probs, y_test, category):
     return analysis
 
 
-def main():
-    results = {}
-    for category in ["flat", "jumps"]:
-        meta = train_model(category)
-        results[category] = meta
+def load_flat_v2_data(start, end, handicap_filter=None, feature_list=None):
+    db = get_db("racing.duckdb")
 
+    if handicap_filter == "handicap":
+        hcap_sql = "AND ra.is_handicap = TRUE"
+    elif handicap_filter == "nonhandicap":
+        hcap_sql = "AND (ra.is_handicap = FALSE OR ra.is_handicap IS NULL)"
+    else:
+        hcap_sql = ""
+
+    df = db.execute(f"""
+        SELECT fs.*,
+            ra.race_type,
+            1 as _dummy
+        FROM feature_store fs
+        JOIN races ra ON fs.race_id = ra.race_id
+        WHERE fs.race_date >= '{start}' AND fs.race_date < '{end}'
+        AND fs.target IS NOT NULL
+        AND ra.race_type = 'Flat'
+        {hcap_sql}
+        ORDER BY fs.race_date, fs.race_id
+    """).df()
+    db.close()
+    df = df.drop(columns=["_dummy"], errors="ignore")
+    df = df[df["race_date"] >= "2015-01-01"].copy()
+    df = df.drop(columns=["race_type"], errors="ignore")
+
+    groups = df.groupby("race_id", sort=False)["runner_id"].count().values
+    y = df["target"].astype(int).values
+
+    feat_source = feature_list if feature_list else FLAT_V2_FEATURES
+    available = [f for f in feat_source if f in df.columns]
+    missing = [f for f in feat_source if f not in df.columns]
+    if missing:
+        print(f"  WARNING: missing features (will skip): {missing}", flush=True)
+
+    X = df[available].copy()
+
+    return X, y, groups, df, available
+
+
+def train_flat_v2(train_start="2015-01-01", use_catboost=True):
+    print(f"\n{'='*60}", flush=True)
+    print(f"  FLAT V2 MODEL ({'CatBoost' if use_catboost else 'LightGBM'}, no isotonic cal)", flush=True)
+    print(f"  Train: {train_start} to {TRAIN_END}", flush=True)
+    print(f"  Cal:   {CAL_START} to {CAL_END}  (early stopping only)", flush=True)
+    print(f"  Test:  {TEST_START} to {TEST_END}", flush=True)
+    print(f"{'='*60}", flush=True)
+
+    X_train, y_train, g_train, df_train, feat_names = load_flat_v2_data(train_start, TRAIN_END)
+    X_cal, y_cal, g_cal, df_cal, _ = load_flat_v2_data(CAL_START, CAL_END)
+    X_test, y_test, g_test, df_test, _ = load_flat_v2_data(TEST_START, TEST_END)
+
+    for extra_df in [X_cal, X_test]:
+        for col in feat_names:
+            if col not in extra_df.columns:
+                extra_df[col] = np.nan
+        drop_extra = [c for c in extra_df.columns if c not in feat_names]
+        extra_df.drop(columns=drop_extra, inplace=True, errors="ignore")
+    X_cal = X_cal[feat_names]
+    X_test = X_test[feat_names]
+
+    print(f"  Features ({len(feat_names)}): {feat_names}", flush=True)
+    print(f"  Train: {len(X_train):,} rows, {len(g_train):,} races", flush=True)
+    print(f"  Cal:   {len(X_cal):,} rows, {len(g_cal):,} races", flush=True)
+    print(f"  Test:  {len(X_test):,} rows, {len(g_test):,} races", flush=True)
+
+    if use_catboost:
+        from catboost import CatBoost, Pool
+        train_pool = Pool(X_train, label=y_train, group_id=np.repeat(
+            np.arange(len(g_train)), g_train))
+        cal_pool = Pool(X_cal, label=y_cal, group_id=np.repeat(
+            np.arange(len(g_cal)), g_cal))
+
+        model = CatBoost(CATBOOST_FLAT_PARAMS)
+        model.fit(train_pool, eval_set=cal_pool, early_stopping_rounds=200)
+        best_iter = model.best_iteration_
+
+        cal_scores = model.predict(X_cal)
+        test_scores = model.predict(X_test)
+    else:
+        model = lgb.LGBMRanker(
+            objective="lambdarank",
+            n_estimators=3000,
+            learning_rate=0.03,
+            num_leaves=50,
+            min_child_samples=40,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            reg_alpha=0.1,
+            reg_lambda=1.0,
+            max_depth=6,
+            random_state=42,
+            n_jobs=-1,
+        )
+        model.fit(
+            X_train, y_train, group=g_train,
+            eval_set=[(X_cal, y_cal)], eval_group=[g_cal], eval_at=[1, 3],
+            callbacks=[lgb.early_stopping(200, first_metric_only=True), lgb.log_evaluation(100)],
+        )
+        best_iter = model.best_iteration_
+        cal_scores = model.predict(X_cal, num_iteration=best_iter)
+        test_scores = model.predict(X_test, num_iteration=best_iter)
+
+    cal_ids = df_cal["race_id"].to_numpy()
+    test_ids = df_test["race_id"].to_numpy()
+    test_probs = race_softmax(test_scores, test_ids)
+
+    brier = brier_score_loss(y_test, test_probs)
+    ll = log_loss(y_test, np.clip(test_probs, 1e-15, 1 - 1e-15), labels=[0, 1])
+    tpwr = top_pick_win_rate(test_probs, test_ids, y_test)
+
+    print(f"\n  Best iteration: {best_iter}", flush=True)
+    print(f"  Brier={brier:.5f}  LogLoss={ll:.5f}  TopPick={tpwr:.1%}", flush=True)
+
+    cal_table = calibration_table(test_probs, y_test)
+    print(f"\n  Calibration (raw softmax on TEST):", flush=True)
+    print(cal_table.to_string(index=False), flush=True)
+
+    db2 = get_db("racing.duckdb")
+    sp_df = db2.execute("SELECT runner_id, sp_decimal FROM results WHERE sp_decimal IS NOT NULL AND sp_decimal > 1").df()
+    race_info = db2.execute("SELECT race_id, is_handicap, race_class FROM races").df()
+    db2.close()
+
+    analysis = df_test[["race_id", "runner_id", "race_date"]].copy()
+    analysis["prob"] = test_probs
+    analysis["target"] = y_test
+    analysis = analysis.merge(sp_df, on="runner_id", how="left")
+    analysis = analysis.merge(race_info, on="race_id", how="left")
+    analysis["implied"] = 1.0 / analysis["sp_decimal"]
+    analysis["edge"] = analysis["prob"] - analysis["implied"]
+    analysis["profit"] = analysis["target"] * (analysis["sp_decimal"] - 1) - (1 - analysis["target"])
+
+    has_sp = analysis[analysis["sp_decimal"].notna()].copy()
+
+    print(f"\n  {'='*70}", flush=True)
+    print(f"  FLAT V2 VALUE ANALYSIS", flush=True)
+    print(f"  {'='*70}", flush=True)
+
+    for thresh in [0.03, 0.05, 0.08, 0.10, 0.12]:
+        vb = has_sp[has_sp["edge"] > thresh]
+        if len(vb) == 0:
+            continue
+        roi = vb["profit"].mean()
+        strike = vb["target"].mean()
+        avg_sp = vb["sp_decimal"].mean()
+        print(f"  Edge>{thresh:.0%}: {len(vb):>5} bets, strike={strike:.3f}, avgSP={avg_sp:.1f}, ROI={roi:>+7.2%}", flush=True)
+
+    for sp_lo, sp_hi, label in [(1, 6, "SP 1-6"), (6, 15, "SP 6-15"), (15, 50, "SP 15-50")]:
+        for thresh in [0.05, 0.08, 0.10]:
+            vb = has_sp[(has_sp["edge"] > thresh) & (has_sp["sp_decimal"] >= sp_lo) & (has_sp["sp_decimal"] < sp_hi)]
+            if len(vb) == 0:
+                continue
+            roi = vb["profit"].mean()
+            strike = vb["target"].mean()
+            print(f"  {label} edge>{thresh:.0%}: {len(vb):>5} bets, strike={strike:.3f}, ROI={roi:>+7.2%}", flush=True)
+
+    for is_h, label in [(True, "Handicap"), (False, "Non-handicap")]:
+        for thresh in [0.05, 0.08, 0.10]:
+            vb = has_sp[(has_sp["edge"] > thresh) & (has_sp["is_handicap"] == is_h)]
+            if len(vb) == 0:
+                continue
+            roi = vb["profit"].mean()
+            strike = vb["target"].mean()
+            print(f"  {label} edge>{thresh:.0%}: {len(vb):>5} bets, strike={strike:.3f}, ROI={roi:>+7.2%}", flush=True)
+
+    if use_catboost:
+        fi = sorted(zip(feat_names, model.get_feature_importance(type="PredictionValuesChange")), key=lambda x: x[1], reverse=True)
+    else:
+        fi = sorted(zip(feat_names, model.feature_importances_), key=lambda x: x[1], reverse=True)
+    print(f"\n  Feature importance:", flush=True)
+    for feat, imp in fi:
+        print(f"    {feat:<35} {imp:.1f}", flush=True)
+
+    engine = "catboost" if use_catboost else "lgbm"
+    run_id = f"{datetime.now().strftime('%Y%m%d_%H%M')}_flat_v2_{engine}"
+    if use_catboost:
+        model.save_model(f"models/{run_id}.cbm")
+    else:
+        model.booster_.save_model(f"models/{run_id}.lgbm")
+
+    meta = {
+        "run_id": run_id, "category": "flat_v2", "engine": engine,
+        "calibration": "none",
+        "features": feat_names,
+        "split": {"train": [train_start, TRAIN_END], "cal": [CAL_START, CAL_END], "test": [TEST_START, TEST_END]},
+        "n_train": len(X_train), "n_cal": len(X_cal), "n_test": len(X_test),
+        "best_iter": int(best_iter),
+        "test_brier": float(brier), "test_ll": float(ll), "test_top_pick": float(tpwr),
+    }
+    with open(f"experiments/{run_id}.json", "w") as f:
+        json.dump(meta, f, indent=2)
+    print(f"\n  Saved: models/{run_id}.{'cbm' if use_catboost else 'lgbm'}", flush=True)
+
+    return meta
+
+
+def walk_forward_flat_v2(use_catboost=True):
     print(f"\n{'='*70}", flush=True)
-    print(f"  FINAL SUMMARY", flush=True)
+    print(f"  FLAT V2 WALK-FORWARD ({'CatBoost' if use_catboost else 'LightGBM'}, no isotonic cal)", flush=True)
     print(f"{'='*70}", flush=True)
-    for cat, m in results.items():
-        print(f"  {cat.upper()}: TopPick={m['test_top_pick']:.1%}  Brier={m['test_brier']:.5f}  LogLoss={m['test_ll']:.5f}", flush=True)
+
+    db = get_db("racing.duckdb")
+    sp_df = db.execute("SELECT runner_id, sp_decimal FROM results WHERE sp_decimal IS NOT NULL AND sp_decimal > 1").df()
+    race_info = db.execute("SELECT race_id, is_handicap, race_class FROM races").df()
+    db.close()
+
+    all_window_results = []
+
+    for w in WALK_FORWARD_WINDOWS:
+        print(f"\n  --- {w['label']} ---", flush=True)
+
+        X_train, y_train, g_train, df_train, feat_names = load_flat_v2_data("2015-01-01", w["train_end"])
+        X_cal, y_cal, g_cal, df_cal, _ = load_flat_v2_data(w["cal_start"], w["cal_end"])
+        X_test, y_test, g_test, df_test, _ = load_flat_v2_data(w["test_start"], w["test_end"])
+
+        if len(X_test) == 0:
+            continue
+
+        for extra_df in [X_cal, X_test]:
+            for col in feat_names:
+                if col not in extra_df.columns:
+                    extra_df[col] = np.nan
+            drop_extra = [c for c in extra_df.columns if c not in feat_names]
+            extra_df.drop(columns=drop_extra, inplace=True, errors="ignore")
+        X_cal = X_cal[feat_names]
+        X_test = X_test[feat_names]
+
+        if use_catboost:
+            from catboost import CatBoost, Pool
+            train_pool = Pool(X_train, label=y_train, group_id=np.repeat(
+                np.arange(len(g_train)), g_train))
+            cal_pool = Pool(X_cal, label=y_cal, group_id=np.repeat(
+                np.arange(len(g_cal)), g_cal))
+
+            model = CatBoost(CATBOOST_FLAT_PARAMS)
+            model.fit(train_pool, eval_set=cal_pool, early_stopping_rounds=200)
+            test_scores = model.predict(X_test)
+        else:
+            model = lgb.LGBMRanker(
+                objective="lambdarank", n_estimators=3000,
+                learning_rate=0.03, num_leaves=50, min_child_samples=40,
+                subsample=0.8, colsample_bytree=0.8,
+                reg_alpha=0.1, reg_lambda=1.0, max_depth=6,
+                random_state=42, n_jobs=-1,
+            )
+            model.fit(
+                X_train, y_train, group=g_train,
+                eval_set=[(X_cal, y_cal)], eval_group=[g_cal], eval_at=[1],
+                callbacks=[lgb.early_stopping(200, first_metric_only=True), lgb.log_evaluation(0)],
+            )
+            test_scores = model.predict(X_test, num_iteration=model.best_iteration_)
+
+        test_ids = df_test["race_id"].to_numpy()
+        test_probs = race_softmax(test_scores, test_ids)
+
+        a = df_test[["race_id", "runner_id", "race_date"]].copy()
+        a["prob"] = test_probs
+        a["target"] = y_test
+        a = a.merge(sp_df, on="runner_id", how="left")
+        a = a.merge(race_info, on="race_id", how="left")
+        a["implied"] = np.where(a["sp_decimal"] > 1, 1.0 / a["sp_decimal"], np.nan)
+        a["edge"] = a["prob"] - a["implied"]
+        a["profit"] = a["target"] * (a["sp_decimal"] - 1) - (1 - a["target"])
+        a["window"] = w["label"]
+
+        has_sp = a[a["sp_decimal"].notna()].copy()
+
+        for thresh in [0.05, 0.08, 0.10]:
+            vb = has_sp[has_sp["edge"] > thresh]
+            if len(vb) == 0:
+                continue
+            roi = vb["profit"].mean()
+            strike = vb["target"].mean()
+            avg_sp = vb["sp_decimal"].mean()
+            print(f"    edge>{thresh:.0%}: {len(vb):>5} bets, strike={strike:.3f}, avgSP={avg_sp:.1f}, ROI={roi:>+7.2%}", flush=True)
+
+        all_window_results.append(has_sp)
+
+    if not all_window_results:
+        print("  No data across walk-forward windows", flush=True)
+        return
+
+    combined = pd.concat(all_window_results)
+
+    print(f"\n  {'='*70}", flush=True)
+    print(f"  COMBINED WALK-FORWARD RESULTS", flush=True)
+    print(f"  {'='*70}", flush=True)
+
+    for thresh in [0.05, 0.08, 0.10, 0.12]:
+        vb = combined[combined["edge"] > thresh]
+        if len(vb) == 0:
+            continue
+        roi = vb["profit"].mean()
+        strike = vb["target"].mean()
+        avg_sp = vb["sp_decimal"].mean()
+        total_pnl = vb["profit"].sum()
+        print(f"  edge>{thresh:.0%}: {len(vb):>6} bets, strike={strike:.3f}, avgSP={avg_sp:.1f}, ROI={roi:>+7.2%}, P&L=£{total_pnl:>+,.0f}", flush=True)
+
+    print(f"\n  Per-window breakdown (edge>8%):", flush=True)
+    print(f"  {'Window':<15} {'Bets':>6} {'Strike':>8} {'AvgSP':>7} {'ROI':>8} {'P&L':>10}", flush=True)
+    print(f"  {'-'*58}", flush=True)
+    for window in [w["label"] for w in WALK_FORWARD_WINDOWS]:
+        vb = combined[(combined["window"] == window) & (combined["edge"] > 0.08)]
+        if len(vb) == 0:
+            continue
+        roi = vb["profit"].mean()
+        strike = vb["target"].mean()
+        avg_sp = vb["sp_decimal"].mean()
+        pnl = vb["profit"].sum()
+        print(f"  {window:<15} {len(vb):>6} {strike:>7.3f} {avg_sp:>7.1f} {roi:>+7.2%} £{pnl:>+9.0f}", flush=True)
+
+    for sp_lo, sp_hi, label in [(1, 6, "SP 1-6"), (6, 15, "SP 6-15"), (15, 50, "SP 15-50")]:
+        vb = combined[(combined["edge"] > 0.08) & (combined["sp_decimal"] >= sp_lo) & (combined["sp_decimal"] < sp_hi)]
+        if len(vb) == 0:
+            continue
+        roi = vb["profit"].mean()
+        strike = vb["target"].mean()
+        print(f"  {label} edge>8%: {len(vb):>5} bets, strike={strike:.3f}, ROI={roi:>+7.2%}", flush=True)
+
+    for is_h, label in [(True, "Handicap"), (False, "Non-handicap")]:
+        vb = combined[(combined["edge"] > 0.08) & (combined["is_handicap"] == is_h)]
+        if len(vb) == 0:
+            continue
+        roi = vb["profit"].mean()
+        strike = vb["target"].mean()
+        print(f"  {label} edge>8%: {len(vb):>5} bets, strike={strike:.3f}, ROI={roi:>+7.2%}", flush=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Train racing models")
+    parser.add_argument("--flat-v2", action="store_true", help="Train flat v2 (CatBoost, no calibration)")
+    parser.add_argument("--flat-v2-lgbm", action="store_true", help="Train flat v2 with LightGBM for comparison")
+    parser.add_argument("--walk-forward", action="store_true", help="Run walk-forward validation instead of single split")
+    parser.add_argument("--original", action="store_true", help="Train original flat+jumps models")
+    args = parser.parse_args()
+
+    if args.flat_v2 or args.flat_v2_lgbm:
+        use_catboost = args.flat_v2
+        if args.walk_forward:
+            walk_forward_flat_v2(use_catboost=use_catboost)
+        else:
+            train_flat_v2(use_catboost=use_catboost)
+        return
+
+    if args.original or not any([args.flat_v2, args.flat_v2_lgbm]):
+        results = {}
+        for category in ["flat", "jumps"]:
+            meta = train_model(category)
+            results[category] = meta
+
+        print(f"\n{'='*70}", flush=True)
+        print(f"  FINAL SUMMARY", flush=True)
+        print(f"{'='*70}", flush=True)
+        for cat, m in results.items():
+            print(f"  {cat.upper()}: TopPick={m['test_top_pick']:.1%}  Brier={m['test_brier']:.5f}  LogLoss={m['test_ll']:.5f}", flush=True)
 
 
 if __name__ == "__main__":

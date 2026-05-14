@@ -42,3 +42,16 @@ DEFAULT_PARAMS = {
     "random_state": 42,
     "n_jobs": -1,
 }
+
+CATBOOST_FLAT_PARAMS = {
+    "loss_function": "YetiRank",
+    "iterations": 3000,
+    "learning_rate": 0.03,
+    "depth": 6,
+    "l2_leaf_reg": 3.0,
+    "subsample": 0.8,
+    "random_seed": 42,
+    "verbose": 100,
+    "use_best_model": True,
+    "eval_metric": "NDCG:top=1",
+}
