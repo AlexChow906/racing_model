@@ -10,50 +10,8 @@ from sklearn.isotonic import IsotonicRegression
 from sklearn.metrics import brier_score_loss, log_loss
 
 from src.ingestion.db_connect import get_db
-
-TRAIN_END = "2024-01-01"
-CAL_START = "2024-01-01"
-CAL_END = "2025-01-01"
-TEST_START = "2025-01-01"
-TEST_END = "2027-01-01"
-
-EXCLUDE = [
-    "runner_id", "race_id", "race_date", "decision_cutoff_utc",
-    "target", "event_timestamp_utc",
-]
-
-DROP_LOW_IMPORTANCE = [
-    "collateral_franked_winners", "trainer_runs_90d",
-    "race_class_encoded", "career_win_rate",
-    "horse_course_affinity", "jockey_trainer_combo_runs",
-    "horse_distance_affinity", "horse_win_rate_last_10",
-    "horse_going_group_affinity",
-    "race_type_encoded",
-    "horse_wins_last_5",
-    "draw_is_null",
-    "horse_first_time_headgear",
-    "surface_encoded",
-    "race_day_of_week",
-    "going_encoded",
-    "horse_course_runs",
-    "race_month",
-    "field_size",
-    "horse_place_rate_last_5",
-    "horse_fall_rate",
-    "horse_completion_rate",
-    "pace_front_runners",
-]
-
-FLAT_DROP = DROP_LOW_IMPORTANCE + [
-    "is_jumps",
-]
-
-JUMPS_DROP = DROP_LOW_IMPORTANCE + [
-    "draw_position", "draw_field_percentile", "draw_course_going_win_rate",
-    "draw_bias_coefficient", "draw_is_null",
-    "is_jumps",
-    "surface_encoded",
-]
+from src.constants.features import EXCLUDE, FLAT_DROP, JUMPS_DROP
+from src.constants.windows import TRAIN_END, CAL_START, CAL_END, TEST_START, TEST_END
 
 
 def load_data(start, end, race_category):
@@ -63,15 +21,16 @@ def load_data(start, end, race_category):
     else:
         type_filter = "AND ra.race_type IN ('Chase', 'Hurdle', 'NH Flat')"
 
-    df = db.execute(f"""
-        SELECT fs.*,
-            ra.race_type,
-            nc.horse_completion_rate,
-            nc.horse_fall_rate,
-            nc.horse_pu_rate,
-            nc.horse_nc_last_5
-        FROM feature_store fs
-        JOIN races ra ON fs.race_id = ra.race_id
+    # Check if horse_history has non_completion column
+    has_nc = False
+    try:
+        db.execute("SELECT non_completion FROM horse_history LIMIT 1")
+        has_nc = True
+    except Exception:
+        pass
+
+    if has_nc:
+        nc_join = """
         LEFT JOIN (
             SELECT ru.runner_id,
                 CASE WHEN COUNT(*) FILTER (WHERE ra2.race_type IN ('Chase','Hurdle','NH Flat')) > 0
@@ -96,12 +55,26 @@ def load_data(start, end, race_category):
             ) hh ON hh.horse_id = ru.horse_id AND hh.scheduled_off_utc < ra3.decision_cutoff_utc
             JOIN races ra2 ON ra2.race_id = hh.race_id
             GROUP BY 1
-        ) nc ON nc.runner_id = fs.runner_id
+        ) nc ON nc.runner_id = fs.runner_id"""
+        nc_cols = "nc.horse_completion_rate, nc.horse_fall_rate, nc.horse_pu_rate, nc.horse_nc_last_5,"
+    else:
+        nc_join = ""
+        nc_cols = ""
+
+    df = db.execute(f"""
+        SELECT fs.*,
+            ra.race_type,
+            {nc_cols}
+            1 as _dummy
+        FROM feature_store fs
+        JOIN races ra ON fs.race_id = ra.race_id
+        {nc_join}
         WHERE fs.race_date >= '{start}' AND fs.race_date < '{end}'
         AND fs.target IS NOT NULL
         {type_filter}
         ORDER BY fs.race_date, fs.race_id
     """).df()
+    df = df.drop(columns=["_dummy"], errors="ignore")
 
     df = df[df["race_date"] >= "2015-01-01"].copy()
     df = df.drop(columns=["race_type"], errors="ignore")
