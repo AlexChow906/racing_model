@@ -472,15 +472,14 @@ def main():
     parser = argparse.ArgumentParser(description="Daily race predictions from Betfair API")
     parser.add_argument("--date", type=str, required=True, help="Date: YYYY-MM-DD, 'today', or 'tomorrow'")
     parser.add_argument("--params", type=str, default="tuned", choices=["tuned", "default"])
-    parser.add_argument("--min-edge", type=float, default=None)
-    parser.add_argument("--category", type=str, default=None, choices=["flat", "jumps"])
+    parser.add_argument("--min-edge", type=float, default=0.15)
+    parser.add_argument("--category", type=str, default="flat", choices=["flat", "jumps", "all"])
     parser.add_argument("--output", type=str, default=None)
     parser.add_argument("--skip-rebuild", action="store_true", help="Skip feature store rebuild")
-    parser.add_argument("--flat-v2", action="store_true", help="Use CatBoost flat v2 model (64 features, no calibration)")
+    parser.add_argument("--legacy-lgbm", action="store_true", help="Use old LightGBM model instead of CatBoost v2")
     args = parser.parse_args()
 
-    if args.min_edge is None:
-        args.min_edge = 0.15 if args.flat_v2 else 0.05
+    flat_v2 = not args.legacy_lgbm
 
     target_date = resolve_date(args.date)
     print(f"Predictions for {target_date}", flush=True)
@@ -524,12 +523,12 @@ def main():
         print(f"  Could not fetch live odds: {e}", flush=True)
         live_odds = {}
 
-    categories = [args.category] if args.category else ["flat", "jumps"]
+    categories = ["flat", "jumps"] if args.category == "all" else [args.category]
     all_outputs = []
 
     for category in categories:
         print(f"\nScoring {category} races...", flush=True)
-        df, probs = load_and_score(target_date, category, args.params, flat_v2=args.flat_v2)
+        df, probs = load_and_score(target_date, category, args.params, flat_v2=flat_v2)
 
         if df is None:
             print(f"  No {category} runners found")
