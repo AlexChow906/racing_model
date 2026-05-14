@@ -33,7 +33,7 @@ load_dotenv(ROOT / ".env")
 
 from ingestion.db_connect import get_db
 from ingestion.normalise import slugify, decision_cutoff_for_off_time
-from constants.features import EXCLUDE, FLAT_DROP, JUMPS_DROP
+from constants.features import EXCLUDE, FLAT_DROP, JUMPS_DROP, FLAT_V2_FEATURES
 
 MODELS_DIR = ROOT / "models"
 
@@ -266,8 +266,14 @@ def rebuild_features():
     return rows
 
 
-def load_model(category, params="tuned"):
+def load_model(category, params="tuned", flat_v2=False):
     model_dir = MODELS_DIR / params / category
+    if flat_v2:
+        from catboost import CatBoost
+        cbm_path = model_dir / "model.cbm"
+        model = CatBoost()
+        model.load_model(str(cbm_path))
+        return model, None
     model = lgb.Booster(model_file=str(model_dir / "model.lgbm"))
     calibrator = None
     cal_path = model_dir / "calibrator.pkl"
@@ -310,9 +316,8 @@ def renormalize(probs, race_ids):
     return out
 
 
-def load_and_score(target_date, category, params="tuned"):
+def load_and_score(target_date, category, params="tuned", flat_v2=False):
     """Load features and score runners."""
-    from modeling.train_split import load_data
     db = get_db(str(ROOT / "racing.duckdb"))
 
     if category == "flat":
@@ -335,32 +340,44 @@ def load_and_score(target_date, category, params="tuned"):
     if len(df) == 0:
         return None, None
 
-    model, calibrator = load_model(category, params)
-    expected_features = model.feature_name()
+    if flat_v2 and category == "flat":
+        model, _ = load_model(category, params, flat_v2=True)
+        available = [f for f in FLAT_V2_FEATURES if f in df.columns]
+        X = df[available].copy()
+        for col in FLAT_V2_FEATURES:
+            if col not in X.columns:
+                X[col] = np.nan
+        X = X[FLAT_V2_FEATURES]
 
-    meta_cols = ["race_type", "course_name", "scheduled_off_utc", "horse_name", "trainer_name", "jockey_name"]
-    drop_list = FLAT_DROP if category == "flat" else JUMPS_DROP
-    drop_cols = [c for c in EXCLUDE + drop_list + meta_cols if c in df.columns]
-    X = df.drop(columns=drop_cols, errors="ignore")
+        race_ids = df["race_id"].to_numpy()
+        probs = race_softmax(model.predict(X), race_ids)
+    else:
+        model, calibrator = load_model(category, params)
+        expected_features = model.feature_name()
 
-    non_numeric = [c for c in X.columns if not (pd.api.types.is_numeric_dtype(X[c]) or pd.api.types.is_bool_dtype(X[c]))]
-    for col in non_numeric:
-        X[col] = pd.Categorical(X[col].astype(str)).codes
+        meta_cols = ["race_type", "course_name", "scheduled_off_utc", "horse_name", "trainer_name", "jockey_name"]
+        drop_list = FLAT_DROP if category == "flat" else JUMPS_DROP
+        drop_cols = [c for c in EXCLUDE + drop_list + meta_cols if c in df.columns]
+        X = df.drop(columns=drop_cols, errors="ignore")
 
-    for col in expected_features:
-        if col not in X.columns:
-            X[col] = np.nan
-    X = X[expected_features]
+        non_numeric = [c for c in X.columns if not (pd.api.types.is_numeric_dtype(X[c]) or pd.api.types.is_bool_dtype(X[c]))]
+        for col in non_numeric:
+            X[col] = pd.Categorical(X[col].astype(str)).codes
 
-    race_ids = df["race_id"].to_numpy()
-    raw_scores = model.predict(X)
-    probs = race_softmax(raw_scores, race_ids)
+        for col in expected_features:
+            if col not in X.columns:
+                X[col] = np.nan
+        X = X[expected_features]
 
-    if calibrator:
-        probs = calibrator.transform(probs)
-        probs = np.nan_to_num(probs, nan=1e-6)
-        probs = np.clip(probs, 1e-6, 1.0)
-        probs = renormalize(probs, race_ids)
+        race_ids = df["race_id"].to_numpy()
+        raw_scores = model.predict(X)
+        probs = race_softmax(raw_scores, race_ids)
+
+        if calibrator:
+            probs = calibrator.transform(probs)
+            probs = np.nan_to_num(probs, nan=1e-6)
+            probs = np.clip(probs, 1e-6, 1.0)
+            probs = renormalize(probs, race_ids)
 
     return df, probs
 
@@ -455,11 +472,15 @@ def main():
     parser = argparse.ArgumentParser(description="Daily race predictions from Betfair API")
     parser.add_argument("--date", type=str, required=True, help="Date: YYYY-MM-DD, 'today', or 'tomorrow'")
     parser.add_argument("--params", type=str, default="tuned", choices=["tuned", "default"])
-    parser.add_argument("--min-edge", type=float, default=0.05)
+    parser.add_argument("--min-edge", type=float, default=None)
     parser.add_argument("--category", type=str, default=None, choices=["flat", "jumps"])
     parser.add_argument("--output", type=str, default=None)
     parser.add_argument("--skip-rebuild", action="store_true", help="Skip feature store rebuild")
+    parser.add_argument("--flat-v2", action="store_true", help="Use CatBoost flat v2 model (64 features, no calibration)")
     args = parser.parse_args()
+
+    if args.min_edge is None:
+        args.min_edge = 0.15 if args.flat_v2 else 0.05
 
     target_date = resolve_date(args.date)
     print(f"Predictions for {target_date}", flush=True)
@@ -508,7 +529,7 @@ def main():
 
     for category in categories:
         print(f"\nScoring {category} races...", flush=True)
-        df, probs = load_and_score(target_date, category, args.params)
+        df, probs = load_and_score(target_date, category, args.params, flat_v2=args.flat_v2)
 
         if df is None:
             print(f"  No {category} runners found")
