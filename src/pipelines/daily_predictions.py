@@ -1,13 +1,13 @@
 """
 Daily predictions — score today's or tomorrow's races using Betfair API for race cards.
+Flat uses CatBoost v2 (64 features, no calibration). Jumps uses LightGBM.
 
 Usage:
-    python -m src.pipelines.daily_predictions --date today
     python -m src.pipelines.daily_predictions --date tomorrow
-    python -m src.pipelines.daily_predictions --date 2026-05-13
-    python -m src.pipelines.daily_predictions --date tomorrow --category flat
-    python -m src.pipelines.daily_predictions --date tomorrow --min-edge 0.10
-    python -m src.pipelines.daily_predictions --date tomorrow --output bets.csv
+    python -m src.pipelines.daily_predictions --date tomorrow --flat
+    python -m src.pipelines.daily_predictions --date tomorrow --jumps
+    python -m src.pipelines.daily_predictions --date tomorrow --min-edge 0.12
+    python -m src.pipelines.daily_predictions --date 2026-05-15 --output bets.csv
 """
 from __future__ import annotations
 
@@ -266,15 +266,16 @@ def rebuild_features():
     return rows
 
 
-def load_model(category, params="tuned", flat_v2=False):
+def load_model(category, params="tuned"):
     model_dir = MODELS_DIR / params / category
-    if flat_v2:
+    cbm_path = model_dir / "model.cbm"
+    lgbm_path = model_dir / "model.lgbm"
+    if cbm_path.exists():
         from catboost import CatBoost
-        cbm_path = model_dir / "model.cbm"
         model = CatBoost()
         model.load_model(str(cbm_path))
         return model, None
-    model = lgb.Booster(model_file=str(model_dir / "model.lgbm"))
+    model = lgb.Booster(model_file=str(lgbm_path))
     calibrator = None
     cal_path = model_dir / "calibrator.pkl"
     if cal_path.exists():
@@ -316,7 +317,7 @@ def renormalize(probs, race_ids):
     return out
 
 
-def load_and_score(target_date, category, params="tuned", flat_v2=False):
+def load_and_score(target_date, category, params="tuned"):
     """Load features and score runners."""
     db = get_db(str(ROOT / "racing.duckdb"))
 
@@ -340,23 +341,19 @@ def load_and_score(target_date, category, params="tuned", flat_v2=False):
     if len(df) == 0:
         return None, None
 
-    if flat_v2 and category == "flat":
-        model, _ = load_model(category, params, flat_v2=True)
+    model, calibrator = load_model(category, params)
+
+    if category == "flat":
         available = [f for f in FLAT_V2_FEATURES if f in df.columns]
         X = df[available].copy()
         for col in FLAT_V2_FEATURES:
             if col not in X.columns:
                 X[col] = np.nan
         X = X[FLAT_V2_FEATURES]
-
-        race_ids = df["race_id"].to_numpy()
-        probs = race_softmax(model.predict(X), race_ids)
     else:
-        model, calibrator = load_model(category, params)
         expected_features = model.feature_name()
-
         meta_cols = ["race_type", "course_name", "scheduled_off_utc", "horse_name", "trainer_name", "jockey_name"]
-        drop_list = FLAT_DROP if category == "flat" else JUMPS_DROP
+        drop_list = JUMPS_DROP
         drop_cols = [c for c in EXCLUDE + drop_list + meta_cols if c in df.columns]
         X = df.drop(columns=drop_cols, errors="ignore")
 
@@ -369,15 +366,14 @@ def load_and_score(target_date, category, params="tuned", flat_v2=False):
                 X[col] = np.nan
         X = X[expected_features]
 
-        race_ids = df["race_id"].to_numpy()
-        raw_scores = model.predict(X)
-        probs = race_softmax(raw_scores, race_ids)
+    race_ids = df["race_id"].to_numpy()
+    probs = race_softmax(model.predict(X), race_ids)
 
-        if calibrator:
-            probs = calibrator.transform(probs)
-            probs = np.nan_to_num(probs, nan=1e-6)
-            probs = np.clip(probs, 1e-6, 1.0)
-            probs = renormalize(probs, race_ids)
+    if calibrator:
+        probs = calibrator.transform(probs)
+        probs = np.nan_to_num(probs, nan=1e-6)
+        probs = np.clip(probs, 1e-6, 1.0)
+        probs = renormalize(probs, race_ids)
 
     return df, probs
 
@@ -473,13 +469,11 @@ def main():
     parser.add_argument("--date", type=str, required=True, help="Date: YYYY-MM-DD, 'today', or 'tomorrow'")
     parser.add_argument("--params", type=str, default="tuned", choices=["tuned", "default"])
     parser.add_argument("--min-edge", type=float, default=0.15)
-    parser.add_argument("--category", type=str, default="flat", choices=["flat", "jumps", "all"])
+    parser.add_argument("--flat", action="store_true", help="Flat races only")
+    parser.add_argument("--jumps", action="store_true", help="Jumps races only")
     parser.add_argument("--output", type=str, default=None)
     parser.add_argument("--skip-rebuild", action="store_true", help="Skip feature store rebuild")
-    parser.add_argument("--legacy-lgbm", action="store_true", help="Use old LightGBM model instead of CatBoost v2")
     args = parser.parse_args()
-
-    flat_v2 = not args.legacy_lgbm
 
     target_date = resolve_date(args.date)
     print(f"Predictions for {target_date}", flush=True)
@@ -523,12 +517,17 @@ def main():
         print(f"  Could not fetch live odds: {e}", flush=True)
         live_odds = {}
 
-    categories = ["flat", "jumps"] if args.category == "all" else [args.category]
+    if args.flat:
+        categories = ["flat"]
+    elif args.jumps:
+        categories = ["jumps"]
+    else:
+        categories = ["flat", "jumps"]
     all_outputs = []
 
     for category in categories:
         print(f"\nScoring {category} races...", flush=True)
-        df, probs = load_and_score(target_date, category, args.params, flat_v2=flat_v2)
+        df, probs = load_and_score(target_date, category, args.params)
 
         if df is None:
             print(f"  No {category} runners found")
