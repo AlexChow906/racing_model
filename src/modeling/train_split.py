@@ -539,6 +539,8 @@ def train_flat_v2(train_start="2015-01-01", use_catboost=True):
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M')}_flat_v2_{engine}"
     if use_catboost:
         model.save_model(f"models/{run_id}.cbm")
+        Path("models/tuned/flat").mkdir(parents=True, exist_ok=True)
+        model.save_model("models/tuned/flat/model.cbm")
     else:
         model.booster_.save_model(f"models/{run_id}.lgbm")
 
@@ -553,7 +555,8 @@ def train_flat_v2(train_start="2015-01-01", use_catboost=True):
     }
     with open(f"experiments/{run_id}.json", "w") as f:
         json.dump(meta, f, indent=2)
-    print(f"\n  Saved: models/{run_id}.{'cbm' if use_catboost else 'lgbm'}", flush=True)
+    print(f"\n  Saved: models/tuned/flat/model.cbm (production)", flush=True)
+    print(f"  Saved: models/{run_id}.{'cbm' if use_catboost else 'lgbm'} (archive)", flush=True)
 
     return meta
 
