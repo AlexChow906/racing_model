@@ -7,32 +7,8 @@ from sklearn.metrics import brier_score_loss
 
 from src.modeling.train_split import load_data, race_softmax, renormalize, top_pick_win_rate
 from src.ingestion.db_connect import get_db
-
-WINDOWS = [
-    {"train_end": "2021-01-01", "cal_start": "2021-01-01", "cal_end": "2022-01-01", "test_start": "2022-01-01", "test_end": "2023-01-01", "label": "Test 2022"},
-    {"train_end": "2022-01-01", "cal_start": "2022-01-01", "cal_end": "2023-01-01", "test_start": "2023-01-01", "test_end": "2024-01-01", "label": "Test 2023"},
-    {"train_end": "2023-01-01", "cal_start": "2023-01-01", "cal_end": "2024-01-01", "test_start": "2024-01-01", "test_end": "2025-01-01", "label": "Test 2024"},
-    {"train_end": "2024-01-01", "cal_start": "2024-01-01", "cal_end": "2025-01-01", "test_start": "2025-01-01", "test_end": "2027-01-01", "label": "Test 2025-26"},
-]
-
-PARAMS = {
-    "flat": {
-        "objective": "lambdarank", "n_estimators": 3000,
-        "learning_rate": 0.04369, "num_leaves": 57, "min_child_samples": 69,
-        "subsample": 0.8805, "colsample_bytree": 0.9574,
-        "reg_alpha": 2.935e-06, "reg_lambda": 0.001326,
-        "max_depth": 7, "min_split_gain": 0.02777,
-        "random_state": 42, "n_jobs": -1,
-    },
-    "jumps": {
-        "objective": "lambdarank", "n_estimators": 3000,
-        "learning_rate": 0.04460, "num_leaves": 100, "min_child_samples": 63,
-        "subsample": 0.7438, "colsample_bytree": 0.5903,
-        "reg_alpha": 0.2719, "reg_lambda": 0.004538,
-        "max_depth": 9, "min_split_gain": 0.06107,
-        "random_state": 42, "n_jobs": -1,
-    },
-}
+from src.constants.windows import WALK_FORWARD_WINDOWS as WINDOWS
+from src.constants.params import TUNED_PARAMS as PARAMS
 
 
 def run_window(category, window):

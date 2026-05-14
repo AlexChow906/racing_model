@@ -9,50 +9,12 @@ import pandas as pd
 from sklearn.metrics import brier_score_loss, log_loss
 
 from src.ingestion.db_connect import get_db
+from src.constants.features import EXCLUDE, DROP_LOW_IMPORTANCE
 
-# Walk-forward Window A
 TRAIN_START = "2015-01-01"
 TRAIN_END = "2022-01-01"
 VAL_START = "2022-01-01"
 VAL_END = "2023-01-01"
-
-EXCLUDE = [
-    "runner_id",
-    "race_id",
-    "race_date",
-    "decision_cutoff_utc",
-    "target",
-    "event_timestamp_utc",
-]
-
-DROP_LOW_IMPORTANCE = [
-    "weight_change_lbs",
-    "collateral_franked_winners",
-    "trainer_runs_90d",
-    "race_class_encoded",
-    "career_win_rate",
-    "draw_bias_coefficient",
-    "horse_course_affinity",
-    "jockey_trainer_combo_runs",
-    "horse_distance_affinity",
-    "horse_win_rate_last_10",
-    "draw_course_going_win_rate",
-    "pace_front_runners",
-    "draw_position",
-    "horse_going_group_affinity",
-    "pace_hold_up_horses",
-    "field_size",
-    "race_month",
-    "race_type_encoded",
-    "going_encoded",
-    "horse_first_time_headgear",
-    "race_day_of_week",
-    "horse_course_runs",
-    "surface_encoded",
-    "horse_wins_last_5",
-    "is_jumps",
-    "draw_is_null",
-]
 
 
 def load_split(start, end):
