@@ -42,9 +42,9 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from ingestion.db_connect import get_db
-from constants.features import EXCLUDE, FLAT_DROP, JUMPS_DROP
+from constants.features import EXCLUDE, FLAT_DROP, JUMPS_DROP, FLAT_V2_FEATURES
 from constants.windows import WALK_FORWARD_WINDOWS
-from constants.params import TUNED_PARAMS, DEFAULT_PARAMS
+from constants.params import TUNED_PARAMS, DEFAULT_PARAMS, CATBOOST_FLAT_PARAMS
 
 MODELS_DIR = ROOT / "models"
 plt.style.use("seaborn-v0_8-whitegrid")
@@ -55,6 +55,12 @@ COLORS = {"flat": "#2196F3", "jumps": "#4CAF50", "combined": "#FF9800"}
 
 def load_model(category, params="tuned"):
     model_dir = MODELS_DIR / params / category
+    cbm_path = model_dir / "model.cbm"
+    if cbm_path.exists():
+        from catboost import CatBoostRanker
+        model = CatBoostRanker()
+        model.load_model(str(cbm_path))
+        return model, None
     model = lgb.Booster(model_file=str(model_dir / "model.lgbm"))
     calibrator = None
     cal_path = model_dir / "calibrator.pkl"
@@ -178,11 +184,10 @@ def score_category(start_date, end_date, category, params="tuned"):
 
 # ── Walk-forward ─────────────────────────────────────────────────────
 
-def run_walk_forward(categories, params_name="tuned"):
+def run_walk_forward(categories, params_name="tuned", flat_v2=False, flat_v2_engine="catboost"):
     """Run full walk-forward: train per window, return combined bets."""
-    from modeling.train_split import load_data
+    from modeling.train_split import load_data, load_flat_v2_data
 
-    # Remove incomplete data from feature_store (prediction-only rows with no results)
     db = get_db(str(ROOT / "racing.duckdb"))
     incomplete = db.execute("""
         SELECT COUNT(*) FROM feature_store fs
@@ -206,40 +211,89 @@ def run_walk_forward(categories, params_name="tuned"):
 
     params_dict = TUNED_PARAMS if params_name == "tuned" else {"flat": DEFAULT_PARAMS, "jumps": DEFAULT_PARAMS}
     all_bets = []
+    use_catboost = flat_v2 and flat_v2_engine == "catboost"
 
     for w in WALK_FORWARD_WINDOWS:
         print(f"\n  --- {w['label']} ---", flush=True)
         for category in categories:
-            X_train, y_train, g_train, df_train = load_data("2015-01-01", w["train_end"], category)
-            X_cal, y_cal, g_cal, df_cal = load_data(w["cal_start"], w["cal_end"], category)
-            X_test, y_test, g_test, df_test = load_data(w["test_start"], w["test_end"], category)
-            if len(X_test) == 0:
-                continue
+            is_flat_v2 = flat_v2 and category == "flat"
 
-            non_numeric = [c for c in X_train.columns
-                           if not (pd.api.types.is_numeric_dtype(X_train[c]) or pd.api.types.is_bool_dtype(X_train[c]))]
-            for col in non_numeric:
-                cats = pd.Index(pd.concat([X_train[col], X_cal[col], X_test[col]]).astype(str).astype("category").cat.categories)
-                X_train[col] = pd.Categorical(X_train[col].astype(str), categories=cats).codes
-                X_cal[col] = pd.Categorical(X_cal[col].astype(str), categories=cats).codes
-                X_test[col] = pd.Categorical(X_test[col].astype(str), categories=cats).codes
+            if is_flat_v2:
+                X_train, y_train, g_train, df_train, feat_names = load_flat_v2_data("2015-01-01", w["train_end"])
+                X_cal, y_cal, g_cal, df_cal, _ = load_flat_v2_data(w["cal_start"], w["cal_end"])
+                X_test, y_test, g_test, df_test, _ = load_flat_v2_data(w["test_start"], w["test_end"])
 
-            p = params_dict[category] if isinstance(params_dict, dict) and category in params_dict else params_dict
-            model = lgb.LGBMRanker(**p)
-            model.fit(X_train, y_train, group=g_train,
-                      eval_set=[(X_cal, y_cal)], eval_group=[g_cal], eval_at=[1],
-                      callbacks=[lgb.early_stopping(100, first_metric_only=True), lgb.log_evaluation(0)])
+                if len(X_test) == 0:
+                    continue
 
-            cal_ids = df_cal["race_id"].to_numpy()
-            cal_probs = race_softmax(model.predict(X_cal, num_iteration=model.best_iteration_), cal_ids)
-            calibrator = IsotonicRegression(out_of_bounds="clip")
-            calibrator.fit(cal_probs, y_cal)
+                for extra_df in [X_cal, X_test]:
+                    for col in feat_names:
+                        if col not in extra_df.columns:
+                            extra_df[col] = np.nan
+                    drop_extra = [c for c in extra_df.columns if c not in feat_names]
+                    extra_df.drop(columns=drop_extra, inplace=True, errors="ignore")
+                X_cal = X_cal[feat_names]
+                X_test = X_test[feat_names]
 
-            test_ids = df_test["race_id"].to_numpy()
-            calibrated = calibrator.transform(race_softmax(model.predict(X_test, num_iteration=model.best_iteration_), test_ids))
-            calibrated = np.nan_to_num(calibrated, nan=1e-6)
-            calibrated = np.clip(calibrated, 1e-6, 1.0)
-            test_probs = renormalize(calibrated, test_ids)
+                if use_catboost:
+                    from catboost import CatBoost, Pool
+                    train_pool = Pool(X_train, label=y_train, group_id=np.repeat(
+                        np.arange(len(g_train)), g_train))
+                    cal_pool = Pool(X_cal, label=y_cal, group_id=np.repeat(
+                        np.arange(len(g_cal)), g_cal))
+
+                    model = CatBoost(CATBOOST_FLAT_PARAMS)
+                    model.fit(train_pool, eval_set=cal_pool, early_stopping_rounds=200)
+                    test_scores = model.predict(X_test)
+                else:
+                    model = lgb.LGBMRanker(
+                        objective="lambdarank", n_estimators=3000,
+                        learning_rate=0.03, num_leaves=50, min_child_samples=40,
+                        subsample=0.8, colsample_bytree=0.8,
+                        reg_alpha=0.1, reg_lambda=1.0, max_depth=6,
+                        random_state=42, n_jobs=-1,
+                    )
+                    model.fit(
+                        X_train, y_train, group=g_train,
+                        eval_set=[(X_cal, y_cal)], eval_group=[g_cal], eval_at=[1],
+                        callbacks=[lgb.early_stopping(200, first_metric_only=True), lgb.log_evaluation(0)],
+                    )
+                    test_scores = model.predict(X_test, num_iteration=model.best_iteration_)
+
+                test_ids = df_test["race_id"].to_numpy()
+                test_probs = race_softmax(test_scores, test_ids)
+            else:
+                X_train, y_train, g_train, df_train = load_data("2015-01-01", w["train_end"], category)
+                X_cal, y_cal, g_cal, df_cal = load_data(w["cal_start"], w["cal_end"], category)
+                X_test, y_test, g_test, df_test = load_data(w["test_start"], w["test_end"], category)
+
+                if len(X_test) == 0:
+                    continue
+
+                non_numeric = [c for c in X_train.columns
+                               if not (pd.api.types.is_numeric_dtype(X_train[c]) or pd.api.types.is_bool_dtype(X_train[c]))]
+                for col in non_numeric:
+                    cats = pd.Index(pd.concat([X_train[col], X_cal[col], X_test[col]]).astype(str).astype("category").cat.categories)
+                    X_train[col] = pd.Categorical(X_train[col].astype(str), categories=cats).codes
+                    X_cal[col] = pd.Categorical(X_cal[col].astype(str), categories=cats).codes
+                    X_test[col] = pd.Categorical(X_test[col].astype(str), categories=cats).codes
+
+                p = params_dict[category] if isinstance(params_dict, dict) and category in params_dict else params_dict
+                model = lgb.LGBMRanker(**p)
+                model.fit(X_train, y_train, group=g_train,
+                          eval_set=[(X_cal, y_cal)], eval_group=[g_cal], eval_at=[1],
+                          callbacks=[lgb.early_stopping(100, first_metric_only=True), lgb.log_evaluation(0)])
+
+                cal_ids = df_cal["race_id"].to_numpy()
+                cal_probs = race_softmax(model.predict(X_cal, num_iteration=model.best_iteration_), cal_ids)
+                calibrator = IsotonicRegression(out_of_bounds="clip")
+                calibrator.fit(cal_probs, y_cal)
+
+                test_ids = df_test["race_id"].to_numpy()
+                calibrated = calibrator.transform(race_softmax(model.predict(X_test, num_iteration=model.best_iteration_), test_ids))
+                calibrated = np.nan_to_num(calibrated, nan=1e-6)
+                calibrated = np.clip(calibrated, 1e-6, 1.0)
+                test_probs = renormalize(calibrated, test_ids)
 
             db = get_db(str(ROOT / "racing.duckdb"))
             sp_df = db.execute("SELECT runner_id, sp_decimal FROM results WHERE sp_decimal > 1").df()
@@ -272,9 +326,11 @@ def run_walk_forward(categories, params_name="tuned"):
                 "window": w["label"],
             })
             all_bets.append(bets)
-            vb = bets[(bets["edge"] > 0.05) & bets["sp"].notna()]
+            min_edge = 0.08 if is_flat_v2 else 0.05
+            vb = bets[(bets["edge"] > min_edge) & bets["sp"].notna()]
             roi = vb["profit"].mean() if len(vb) > 0 else 0
-            print(f"    {category}: {len(vb)} bets, ROI={roi:+.2%}", flush=True)
+            label = f"{category}" + (" (v2)" if is_flat_v2 else "")
+            print(f"    {label}: {len(vb)} bets (edge>{min_edge:.0%}), ROI={roi:+.2%}", flush=True)
 
     return pd.concat(all_bets) if all_bets else pd.DataFrame()
 
@@ -587,15 +643,20 @@ def main():
     parser.add_argument("--category", type=str, default=None, choices=["flat", "jumps"])
     parser.add_argument("--output", type=str, default=None)
     parser.add_argument("--no-graphs", action="store_true")
+    parser.add_argument("--flat-v2", action="store_true", help="Use CatBoost flat v2 model for flat races")
+    parser.add_argument("--flat-v2-lgbm", action="store_true", help="Use LightGBM flat v2 model (no calibration) for comparison")
     args = parser.parse_args()
 
     categories = [args.category] if args.category else ["flat", "jumps"]
+    if args.flat_v2 and args.min_edge == 0.05:
+        args.min_edge = 0.08
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
     out_dir = ROOT / "reports" / f"backtest_{timestamp}"
 
     if args.walk_forward:
         print("Running walk-forward backtest...", flush=True)
-        bets = run_walk_forward(categories, args.params)
+        engine = "lgbm" if args.flat_v2_lgbm else "catboost"
+        bets = run_walk_forward(categories, args.params, flat_v2=args.flat_v2 or args.flat_v2_lgbm, flat_v2_engine=engine)
     else:
         if args.date:
             start_date = end_date = args.date

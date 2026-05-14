@@ -78,6 +78,31 @@ def _prepare_upstream_inputs(con: duckdb.DuckDBPyConnection) -> None:
     con.execute(
         """
         UPDATE horse_history hh
+        SET
+            finishing_position = COALESCE(hh.finishing_position, res.finishing_position),
+            won = COALESCE(hh.won, res.won),
+            btn_lengths = COALESCE(hh.btn_lengths, res.btn_lengths),
+            rpr = COALESCE(hh.rpr, res.rpr)
+        FROM results res
+        JOIN runners ru ON res.runner_id = ru.runner_id
+        WHERE ru.horse_id = hh.horse_id
+          AND res.race_id = hh.race_id
+        """
+    )
+
+    con.execute(
+        """
+        UPDATE horse_history hh
+        SET headgear = COALESCE(hh.headgear, ru.headgear)
+        FROM runners ru
+        WHERE ru.horse_id = hh.horse_id
+          AND ru.race_id = hh.race_id
+        """
+    )
+
+    con.execute(
+        """
+        UPDATE horse_history hh
         SET days_since_prev_run = sub.days_since_prev_run
         FROM (
             SELECT
@@ -219,6 +244,9 @@ def _materialize_feature_store(con: duckdb.DuckDBPyConnection) -> int:
                 f001.horse_improvement_index,
                 f001.horse_avg_position_pct_last_5,
                 f001.horse_best_rpr_last_5,
+                f001.horse_best_rpr_rp_last_5,
+                f001.horse_avg_rpr_last_3,
+                f001.horse_last_rpr,
                 f001.horse_avg_class_last_3,
                 f005.horse_class_delta AS horse_class_delta,
                 f001.horse_form_trend,
@@ -247,6 +275,7 @@ def _materialize_feature_store(con: duckdb.DuckDBPyConnection) -> int:
                 COALESCE(f005.is_handicap, FALSE) AS is_handicap,
                 f005.race_grade,
                 f005.prize_money_log,
+                f005.is_class_dropper,
                 f006.field_size,
                 f006.pace_front_runners,
                 f006.pace_hold_up_horses,
@@ -353,6 +382,9 @@ def _materialize_feature_store(con: duckdb.DuckDBPyConnection) -> int:
             p.horse_improvement_index,
             p.horse_avg_position_pct_last_5,
             p.horse_best_rpr_last_5,
+            p.horse_best_rpr_rp_last_5,
+            p.horse_avg_rpr_last_3,
+            p.horse_last_rpr,
             p.horse_avg_class_last_3,
             p.horse_class_delta,
             p.horse_form_trend,
@@ -381,6 +413,7 @@ def _materialize_feature_store(con: duckdb.DuckDBPyConnection) -> int:
             p.is_handicap,
             p.race_grade,
             p.prize_money_log,
+            p.is_class_dropper,
             p.field_size,
             p.pace_front_runners,
             p.pace_hold_up_horses,

@@ -51,6 +51,9 @@ class NormalizedRow:
     prize_money_gbp: float | None
     finishing_position: int | None
     won: bool | None
+    btn_lengths: float | None
+    official_time_secs: float | None
+    rpr: float | None
 
 
 def _coerce_int(value: Any) -> int | None:
@@ -208,16 +211,21 @@ def _normalize_input_row(row: dict[str, Any]) -> NormalizedRow | None:
         weight_lbs=_coerce_float(_column_value(row, ["weight_lbs", "weight", "lbs"])),
         age=_coerce_int(_column_value(row, ["age"])),
         official_rating=_coerce_int(_column_value(row, ["official_rating", "or", "rating"])),
-        headgear=str(_column_value(row, ["headgear"]) or "").strip() or None,
+        headgear=str(_column_value(row, ["headgear", "hg"]) or "").strip() or None,
         race_type=str(_column_value(row, ["race_type", "type"]) or "").strip() or None,
         race_class=_coerce_class(_column_value(row, ["race_class", "class", "class_band"])),
-        is_handicap=_coerce_is_handicap(_column_value(row, ["race_type", "type", "race_name"])),
+        is_handicap=_coerce_is_handicap(
+            _column_value(row, ["race_name", "race_type", "type"])
+        ),
         distance_furlongs=_coerce_float(_column_value(row, ["dist_f", "distance_furlongs", "distance", "trip", "dist"])),
         surface=str(_column_value(row, ["surface"]) or "").strip() or None,
         going_code=str(_column_value(row, ["going", "going_code"]) or "").strip() or None,
         prize_money_gbp=_coerce_float(_column_value(row, ["prize_money", "prize_money_gbp", "prize"])),
         finishing_position=finishing_position,
         won=won,
+        btn_lengths=_coerce_float(_column_value(row, ["btn", "btn_lengths", "ovr_btn"])),
+        official_time_secs=_coerce_float(_column_value(row, ["secs", "official_time_secs", "time_secs"])),
+        rpr=_coerce_float(_column_value(row, ["rpr"])),
     )
 
 
@@ -477,6 +485,9 @@ def enrich_from_rpscrape(
                 "race_id": race_id,
                 "finishing_position": src.finishing_position,
                 "finishing_position_raw": str(src.finishing_position) if src.finishing_position is not None else None,
+                "btn_lengths": src.btn_lengths,
+                "official_time_secs": src.official_time_secs,
+                "rpr": src.rpr,
             }
         )
         history_updates.append(
@@ -550,7 +561,10 @@ def enrich_from_rpscrape(
                     UPDATE results
                     SET
                         finishing_position = COALESCE(tmp.finishing_position, results.finishing_position),
-                                                finishing_position_raw = COALESCE(tmp.finishing_position_raw, results.finishing_position_raw)
+                        finishing_position_raw = COALESCE(tmp.finishing_position_raw, results.finishing_position_raw),
+                        btn_lengths = COALESCE(tmp.btn_lengths, results.btn_lengths),
+                        official_time_secs = COALESCE(tmp.official_time_secs, results.official_time_secs),
+                        rpr = COALESCE(tmp.rpr, results.rpr)
                     FROM tmp_result_updates tmp
                     WHERE results.runner_id = tmp.runner_id
                       AND results.race_id = tmp.race_id
