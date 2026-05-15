@@ -447,9 +447,12 @@ def print_predictions(df, probs, category, runner_data, live_odds, min_edge=0.0)
                         value_bets.append({
                             "cloth": cloth, "rank": i,
                             "horse": row.get("horse"),
+                            "runner_id": row.get("runner_id"),
+                            "race_id": race_id,
                             "course": course, "time": uk_time,
                             "model_prob": row["model_prob"], "back": back,
                             "edge": edge_val, "avl": avl,
+                            "category": category,
                         })
 
                 print(f"  {i:<3} {horse:<20} {prob:>6} {m_odds:>5} {back_str:>5} {lay_str:>5} {avl_str:>5} {edge:>6}{marker}")
@@ -468,7 +471,49 @@ def print_predictions(df, probs, category, runner_data, live_odds, min_edge=0.0)
             cloth_str = str(vb['cloth']) if vb['cloth'] else "?"
             print(f"  {str(vb['time']):<6} {cloth_str:<4} {str(vb['horse'])[:19]:<20} {str(vb['course'])[:11]:<12} {vb['rank']:>4} {vb['model_prob']*100:.1f}% {vb['back']:>5.1f} {vb['edge']*100:>+5.1f}% £{vb['avl']:>4.0f}")
 
-    return out
+    return out, value_bets
+
+
+BETS_LOG_COLS = [
+    "date", "race_id", "runner_id", "horse", "course", "time",
+    "category", "model_prob", "back_odds", "edge", "stake",
+]
+
+
+def save_bets_log(value_bets: list[dict], target_date: date):
+    if not value_bets:
+        return
+    log_path = ROOT / "logs" / "daily_bets.csv"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    import csv
+    if log_path.exists():
+        tail = log_path.read_bytes().rstrip().split(b"\n")[-20:]
+        date_str = str(target_date)
+        if any(line.decode("utf-8", errors="ignore").startswith(date_str + ",") for line in tail):
+            print(f"\n  Bets for {target_date} already logged (skipping)", flush=True)
+            return
+
+    write_header = not log_path.exists()
+    with open(log_path, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=BETS_LOG_COLS)
+        if write_header:
+            writer.writeheader()
+        for vb in value_bets:
+            writer.writerow({
+                "date": str(target_date),
+                "race_id": vb.get("race_id"),
+                "runner_id": vb.get("runner_id"),
+                "horse": vb.get("horse"),
+                "course": vb.get("course"),
+                "time": vb.get("time"),
+                "category": vb.get("category"),
+                "model_prob": round(vb["model_prob"], 4),
+                "back_odds": vb.get("back"),
+                "edge": round(vb["edge"], 4),
+                "stake": 1.0,
+            })
+    print(f"\n  Logged {len(value_bets)} bets to {log_path}", flush=True)
 
 
 def main():
@@ -531,6 +576,7 @@ def main():
     else:
         categories = ["flat", "jumps"]
     all_outputs = []
+    all_value_bets = []
 
     for category in categories:
         print(f"\nScoring {category} races...", flush=True)
@@ -543,9 +589,13 @@ def main():
         n_races = df["race_id"].nunique()
         print(f"  {len(df)} runners across {n_races} races", flush=True)
 
-        out = print_predictions(df, probs, category, runners, live_odds, min_edge=args.min_edge)
+        out, value_bets = print_predictions(df, probs, category, runners, live_odds, min_edge=args.min_edge)
         out["category"] = category
         all_outputs.append(out)
+        all_value_bets.extend(value_bets)
+
+    if all_value_bets:
+        save_bets_log(all_value_bets, target_date)
 
     if all_outputs and args.output:
         combined = pd.concat(all_outputs)

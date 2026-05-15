@@ -80,6 +80,37 @@ data/raw/            Raw rpscrape CSVs (not committed)
 racing.duckdb        Analytical database (not committed)
 ```
 
+## Daily Pipeline (Live Testing)
+
+Run the full daily pipeline (collect results, update P&L, score today's races):
+
+```bash
+./scripts/daily_run.sh
+```
+
+Or run each step individually:
+
+```bash
+# Collect yesterday's settled results (public SP CSVs, no auth needed)
+python -m src.pipelines.collect_results --date yesterday
+
+# Score today's races (requires Betfair API credentials)
+python -m src.pipelines.daily_predictions --date today
+
+# View P&L
+python -m src.pipelines.track_pnl                              # all-time summary
+python -m src.pipelines.track_pnl --from 2026-05-01 --to 2026-05-07  # date range
+python -m src.pipelines.track_pnl --date 2026-05-15            # single day (bet details)
+```
+
+Automate with cron (runs daily at 9am):
+
+```
+0 9 * * * cd /path/to/racing_model && ./scripts/daily_run.sh >> logs/daily_run.log 2>&1
+```
+
+Value bets are logged to `logs/daily_bets.csv`. P&L summary is saved to `logs/pnl_tracker.csv`.
+
 ## Historical Data Pipeline
 
 1. Download Betfair SP history:
