@@ -54,6 +54,8 @@ class NormalizedRow:
     btn_lengths: float | None
     official_time_secs: float | None
     rpr: float | None
+    non_completion: str | None
+    sex: str | None
 
 
 def _coerce_int(value: Any) -> int | None:
@@ -190,6 +192,8 @@ def _normalize_input_row(row: dict[str, Any]) -> NormalizedRow | None:
     off_time_utc = _parse_datetime(_column_value(row, ["off_time", "off", "race_time", "scheduled_off", "event_dt"]))
 
     finishing_position = _coerce_int(_column_value(row, ["finishing_position", "position", "pos", "finish_pos"]))
+    pos_raw = str(_column_value(row, ["pos", "finishing_position", "position"]) or "").strip().upper()
+    non_completion = pos_raw if pos_raw and not pos_raw.replace(".", "").isdigit() and pos_raw not in ("", "NONE", "NAN") else None
     won_raw = _column_value(row, ["won", "win", "win_flag", "win_lose"])
     won: bool | None = None
     if won_raw is not None and str(won_raw).strip() != "":
@@ -226,6 +230,8 @@ def _normalize_input_row(row: dict[str, Any]) -> NormalizedRow | None:
         btn_lengths=_coerce_float(_column_value(row, ["btn", "btn_lengths", "ovr_btn"])),
         official_time_secs=_coerce_float(_column_value(row, ["secs", "official_time_secs", "time_secs"])),
         rpr=_coerce_float(_column_value(row, ["rpr"])),
+        non_completion=non_completion,
+        sex=str(_column_value(row, ["sex"]) or "").strip().upper() or None,
     )
 
 
@@ -477,6 +483,7 @@ def enrich_from_rpscrape(
                 "age": src.age,
                 "official_rating": src.official_rating,
                 "headgear": src.headgear,
+                "sex": src.sex,
             }
         )
         result_updates.append(
@@ -488,6 +495,7 @@ def enrich_from_rpscrape(
                 "btn_lengths": src.btn_lengths,
                 "official_time_secs": src.official_time_secs,
                 "rpr": src.rpr,
+                "non_completion": src.non_completion,
             }
         )
         history_updates.append(
@@ -546,7 +554,8 @@ def enrich_from_rpscrape(
                         weight_lbs = COALESCE(tmp.weight_lbs, runners.weight_lbs),
                         age = COALESCE(tmp.age, runners.age),
                         official_rating = COALESCE(tmp.official_rating, runners.official_rating),
-                        headgear = COALESCE(tmp.headgear, runners.headgear)
+                        headgear = COALESCE(tmp.headgear, runners.headgear),
+                        sex = COALESCE(tmp.sex, runners.sex)
                     FROM tmp_runner_updates tmp
                     WHERE runners.runner_id = tmp.runner_id
                     """
@@ -564,7 +573,8 @@ def enrich_from_rpscrape(
                         finishing_position_raw = COALESCE(tmp.finishing_position_raw, results.finishing_position_raw),
                         btn_lengths = COALESCE(tmp.btn_lengths, results.btn_lengths),
                         official_time_secs = COALESCE(tmp.official_time_secs, results.official_time_secs),
-                        rpr = COALESCE(tmp.rpr, results.rpr)
+                        rpr = COALESCE(tmp.rpr, results.rpr),
+                        non_completion = COALESCE(tmp.non_completion, results.non_completion)
                     FROM tmp_result_updates tmp
                     WHERE results.runner_id = tmp.runner_id
                       AND results.race_id = tmp.race_id

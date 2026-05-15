@@ -124,4 +124,7 @@ FLAT_V2_FEATURES = [
     "horse_first_time_headgear",
     "collateral_franked_winners",
     "collateral_beaten_count",
+    # Horse sex
+    "sex_encoded",
+    "is_female",
 ]

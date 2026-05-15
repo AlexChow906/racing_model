@@ -82,7 +82,8 @@ def _prepare_upstream_inputs(con: duckdb.DuckDBPyConnection) -> None:
             finishing_position = COALESCE(hh.finishing_position, res.finishing_position),
             won = COALESCE(hh.won, res.won),
             btn_lengths = COALESCE(hh.btn_lengths, res.btn_lengths),
-            rpr = COALESCE(hh.rpr, res.rpr)
+            rpr = COALESCE(hh.rpr, res.rpr),
+            non_completion = COALESCE(hh.non_completion, res.non_completion)
         FROM results res
         JOIN runners ru ON res.runner_id = ru.runner_id
         WHERE ru.horse_id = hh.horse_id
@@ -312,6 +313,15 @@ def _materialize_feature_store(con: duckdb.DuckDBPyConnection) -> int:
                 f009.jockey_upgrade_signal,
                 f009.trainer_win_rate_14d,
                 f009.trainer_runs_14d,
+                CASE
+                    WHEN UPPER(r.sex) = 'G' THEN 0
+                    WHEN UPPER(r.sex) = 'M' THEN 1
+                    WHEN UPPER(r.sex) = 'F' THEN 2
+                    WHEN UPPER(r.sex) = 'C' THEN 3
+                    WHEN UPPER(r.sex) = 'H' THEN 4
+                    ELSE NULL
+                END AS sex_encoded,
+                CASE WHEN UPPER(r.sex) IN ('F', 'M') THEN 1 ELSE 0 END AS is_female,
                 ra.surface AS race_surface,
                 ra.race_type AS race_type_raw,
                 COALESCE(f006.distance_furlongs, ra.distance_furlongs) AS distance_raw
@@ -453,7 +463,9 @@ def _materialize_feature_store(con: duckdb.DuckDBPyConnection) -> int:
             p.avg_btn_last_3,
             p.jockey_upgrade_signal,
             p.trainer_win_rate_14d,
-            p.trainer_runs_14d
+            p.trainer_runs_14d,
+            p.sex_encoded,
+            p.is_female
         FROM parsed p
         LEFT JOIN medians m
             ON COALESCE(m.race_surface, '') = COALESCE(p.race_surface, '')
