@@ -1,85 +1,88 @@
 # racing_model
 
-Price-blind horse racing value model. Predicts win probabilities from fundamentals, compares to Betfair SP to find value bets. Separate flat and jumps models trained with LightGBM LambdaRank + isotonic calibration.
+Price-blind horse racing value model. Predicts win probabilities from fundamentals, compares to Betfair SP to find value bets. Flat uses CatBoost YetiRank (66 features, no calibration). Jumps uses LightGBM LambdaRank + isotonic calibration (64 features).
 
-## Results (Walk-Forward Validation, 2022-2026)
+## Results (Walk-Forward Validation, 2022-2026, edge>15%)
 
-| Model | Total Bets | ROI |
-|-------|-----------|-----|
-| Flat  | 53,905 | +7.69% |
-| Jumps | 39,153 | +11.58% |
-| **Combined** | **93,058** | **+9.33%** |
+| Model | Bets | ROI |
+|-------|------|-----|
+| Flat  | 1,804 | +47.4% |
+| Jumps | 2,397 | +27.9% |
+
+All windows positive for both models.
+
+## Quick Start
+
+```bash
+uv venv .venv && source .venv/bin/activate
+uv pip install -r requirements.txt
+
+# Enrich database with rpscrape data (place CSVs in data/raw/rpscrape/)
+python -m src.ingestion.rpscrape_enrich
+
+# Build feature store
+python -m src.pipelines.run_phase2_feature_store
+
+# Train flat production model (saves to models/tuned/flat/model.cbm)
+python -m src.modeling.train_split --flat-v2
+
+# Walk-forward validation
+python -m src.modeling.train_split --flat-v2 --walk-forward
+
+# Daily predictions (requires Betfair API credentials)
+python -m src.pipelines.daily_predictions --date tomorrow
+python -m src.pipelines.daily_predictions --date tomorrow --flat
+python -m src.pipelines.daily_predictions --date tomorrow --jumps
+python -m src.pipelines.daily_predictions --date tomorrow --min-edge 0.12
+```
 
 ## Data Sources
 
 | Source | What You Get | Access |
 |---|---|---|
 | Betfair SP History | Race spine: BSP prices, win/lose results | Public CSV at promo.betfair.com |
-| rpscrape | Trainer, jockey, draw, weight, going, class, times, headgear | Open-source scraper for Racing Post |
-| Betfair Exchange API | Live odds snapshots | Free account + API credentials |
+| rpscrape | Trainer, jockey, draw, weight, going, class, times, headgear, RPR, sex, non-completions | Open-source scraper for Racing Post |
+| Betfair Exchange API | Live odds for daily predictions | Free account + API credentials |
+
+## Features
+
+**Flat model (66 features, CatBoost YetiRank):**
+- Horse form: weighted form, form trend, place rates, speed figures, RPR, beaten lengths
+- Class: class delta, prize money, handicap flag
+- Ratings/weight: official rating vs field, weight vs field, weight change
+- Race context: field size, distance, pace pressure, race class, going
+- Draw: position, field percentile, course+going bias coefficient
+- Connections: trainer/jockey win rates (90d, course, distance, going, combo)
+- Collateral form: subsequent win/place rate of beaten opponents
+- Horse sex: sex encoded, is female
+
+**Jumps model (64 features, LightGBM + isotonic calibration):**
+- Same as flat minus draw features, plus:
+- Non-completion: pulled-up rate, recent non-completions (F/PU/UR/BD)
+- Completion/fall safety features
 
 ## Project Layout
 
 ```text
-configs/             Settings, course aliases, feature registry
 sql/
   schema/            DuckDB table definitions
   features/          Feature SQL (001-009)
 src/
-  ingestion/         Data download, parsing, enrichment, rematch
-  pipelines/         DB init, historical rebuild, feature store
+  constants/         Features, params, walk-forward windows
+  ingestion/         Data download, parsing, enrichment
+  pipelines/         DB init, feature store, daily predictions, backtest
   modeling/          Training, tuning, validation
 models/
-  default/           Default-param flat + jumps models
-  tuned/             Optuna-tuned flat + jumps models
+  tuned/flat/        Production CatBoost flat model (.cbm)
+  tuned/jumps/       Production LightGBM jumps model (.lgbm)
 experiments/         Training metadata and validation results
-data/raw/            Raw data (not committed)
+data/raw/            Raw rpscrape CSVs (not committed)
 racing.duckdb        Analytical database (not committed)
-```
-
-## Features (81 total, ~65-69 used per model)
-
-**Horse Form**: weighted form score, place rates, finishing positions, form trend, improvement index, beaten lengths, speed figures, career stats, consistency
-
-**Affinity**: going (exact + group), distance, course (venue-normalised)
-
-**Collateral Form**: subsequent win/place rate of beaten opponents (franked form)
-
-**Runner Profile**: weight vs field, age, official rating vs field, career runs
-
-**Trainer**: 90-day win rate, course/going/distance specialisation, 14-day hot streak, fresh horse record
-
-**Jockey**: 90-day win rate, course/distance specialisation, trainer combo, upgrade signal
-
-**Race Context**: class, handicap flag, prize money, pace pressure, draw bias
-
-**Jumps-specific**: completion rate, fall rate, pulled-up rate, recent non-completions
-
-## Quick Start
-
-```bash
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-# Initialize database
-python -m src.pipelines.init_db
-
-# Build feature store (requires populated DB)
-python -m src.pipelines.run_phase2_feature_store
-
-# Train split flat/jumps models
-python -m src.modeling.train_split
-
-# Walk-forward validation (4 windows, 2022-2026)
-python -m src.modeling.walk_forward_final
-
-# Optuna hyperparameter tuning
-python -m src.modeling.tune_optuna
 ```
 
 ## Historical Data Pipeline
 
-1. Download Betfair SP history (public, no auth):
+1. Download Betfair SP history:
 ```bash
 python -m src.ingestion.betfair_historical \
     --use-sp-history \
@@ -91,23 +94,23 @@ python -m src.ingestion.betfair_historical \
 2. Place rpscrape CSV exports under `data/raw/rpscrape/`, then enrich:
 ```bash
 python -m src.ingestion.rpscrape_enrich --input-glob "data/raw/rpscrape/**/*.csv"
-python -m src.ingestion.rematch --input-glob "data/raw/rpscrape/**/*.csv"
 ```
 
 3. Build feature store and train:
 ```bash
 python -m src.pipelines.run_phase2_feature_store
-python -m src.modeling.train_split
+python -m src.modeling.train_split --flat-v2
 ```
 
 ## Value Betting Approach
 
-The model is price-blind: it never sees current race odds. It predicts P(win) from fundamentals, then compares to Betfair SP post-race to identify value:
+The model is price-blind: it never sees current race odds. It predicts P(win) from fundamentals using a ranking model + softmax, then compares to Betfair SP post-race:
 
-1. Model outputs calibrated P(win) per runner
-2. Convert to implied odds: `model_odds = 1 / P(win)`
-3. Compare to BSP: `edge = P(win) - (1 / BSP)`
-4. Bet when `edge > 5%`
+1. Model outputs P(win) per runner via race-level softmax
+2. Compare to BSP: `edge = P(win) - (1 / BSP)`
+3. Bet when `edge > 15%` (configurable with `--min-edge`)
+
+No isotonic calibration for flat (raw softmax). Isotonic calibration for jumps.
 
 ## Betfair Setup
 

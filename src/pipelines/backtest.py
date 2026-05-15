@@ -46,6 +46,7 @@ from constants.features import EXCLUDE, FLAT_DROP, JUMPS_DROP, FLAT_V2_FEATURES
 from constants.windows import WALK_FORWARD_WINDOWS
 from constants.params import TUNED_PARAMS, DEFAULT_PARAMS, CATBOOST_FLAT_PARAMS
 
+DB_PATH = os.environ.get("RACING_DB", str(ROOT / "racing.duckdb"))
 MODELS_DIR = ROOT / "models"
 plt.style.use("seaborn-v0_8-whitegrid")
 COLORS = {"flat": "#2196F3", "jumps": "#4CAF50", "combined": "#FF9800"}
@@ -113,7 +114,7 @@ def score_category(start_date, end_date, category, params="tuned"):
     """Score a date range with a pre-trained model. Returns bets DataFrame."""
     from modeling.train_split import load_data
 
-    db = get_db(str(ROOT / "racing.duckdb"))
+    db = get_db(DB_PATH)
     type_filter = "AND ra.race_type = 'Flat'" if category == "flat" else "AND ra.race_type IN ('Chase', 'Hurdle', 'NH Flat')"
 
     df = db.execute(f"""
@@ -188,7 +189,7 @@ def run_walk_forward(categories, params_name="tuned", flat_v2=False, flat_v2_eng
     """Run full walk-forward: train per window, return combined bets."""
     from modeling.train_split import load_data, load_flat_v2_data
 
-    db = get_db(str(ROOT / "racing.duckdb"))
+    db = get_db(DB_PATH)
     incomplete = db.execute("""
         SELECT COUNT(*) FROM feature_store fs
         WHERE fs.runner_id IN (
@@ -295,7 +296,7 @@ def run_walk_forward(categories, params_name="tuned", flat_v2=False, flat_v2_eng
                 calibrated = np.clip(calibrated, 1e-6, 1.0)
                 test_probs = renormalize(calibrated, test_ids)
 
-            db = get_db(str(ROOT / "racing.duckdb"))
+            db = get_db(DB_PATH)
             sp_df = db.execute("SELECT runner_id, sp_decimal FROM results WHERE sp_decimal > 1").df()
             race_info = db.execute("SELECT race_id, course_name, going_code FROM races").df()
             db.close()

@@ -1,13 +1,13 @@
 """
 Daily predictions — score today's or tomorrow's races using Betfair API for race cards.
+Flat uses CatBoost v2 (66 features, no calibration). Jumps uses LightGBM + isotonic.
 
 Usage:
-    python -m src.pipelines.daily_predictions --date today
     python -m src.pipelines.daily_predictions --date tomorrow
-    python -m src.pipelines.daily_predictions --date 2026-05-13
-    python -m src.pipelines.daily_predictions --date tomorrow --category flat
-    python -m src.pipelines.daily_predictions --date tomorrow --min-edge 0.10
-    python -m src.pipelines.daily_predictions --date tomorrow --output bets.csv
+    python -m src.pipelines.daily_predictions --date tomorrow --flat
+    python -m src.pipelines.daily_predictions --date tomorrow --jumps
+    python -m src.pipelines.daily_predictions --date tomorrow --min-edge 0.12
+    python -m src.pipelines.daily_predictions --date 2026-05-15 --output bets.csv
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ load_dotenv(ROOT / ".env")
 
 from ingestion.db_connect import get_db
 from ingestion.normalise import slugify, decision_cutoff_for_off_time
-from constants.features import EXCLUDE, FLAT_DROP, JUMPS_DROP, FLAT_V2_FEATURES
+from constants.features import EXCLUDE, FLAT_DROP, JUMPS_DROP, FLAT_V2_FEATURES, FLAT_V2_FEATURES
 
 MODELS_DIR = ROOT / "models"
 
@@ -154,11 +154,13 @@ def fetch_race_cards(target_date: date):
             headgear = meta.get("WEARING", "")
             form = meta.get("FORM")
 
+            cloth_number = meta.get("CLOTH_NUMBER") or runner.sort_priority
             runners.append({
                 "runner_id": runner_id,
                 "race_id": race_id,
                 "market_id": m.market_id,
                 "selection_id": runner.selection_id,
+                "cloth_number": int(cloth_number) if cloth_number and str(cloth_number).isdigit() else None,
                 "horse_id": horse_id,
                 "horse_name": horse_name,
                 "trainer_name": trainer,
@@ -266,15 +268,16 @@ def rebuild_features():
     return rows
 
 
-def load_model(category, params="tuned", flat_v2=False):
+def load_model(category, params="tuned"):
     model_dir = MODELS_DIR / params / category
-    if flat_v2:
+    cbm_path = model_dir / "model.cbm"
+    lgbm_path = model_dir / "model.lgbm"
+    if cbm_path.exists():
         from catboost import CatBoost
-        cbm_path = model_dir / "model.cbm"
         model = CatBoost()
         model.load_model(str(cbm_path))
         return model, None
-    model = lgb.Booster(model_file=str(model_dir / "model.lgbm"))
+    model = lgb.Booster(model_file=str(lgbm_path))
     calibrator = None
     cal_path = model_dir / "calibrator.pkl"
     if cal_path.exists():
@@ -316,7 +319,7 @@ def renormalize(probs, race_ids):
     return out
 
 
-def load_and_score(target_date, category, params="tuned", flat_v2=False):
+def load_and_score(target_date, category, params="tuned"):
     """Load features and score runners."""
     db = get_db(str(ROOT / "racing.duckdb"))
 
@@ -340,23 +343,19 @@ def load_and_score(target_date, category, params="tuned", flat_v2=False):
     if len(df) == 0:
         return None, None
 
-    if flat_v2 and category == "flat":
-        model, _ = load_model(category, params, flat_v2=True)
+    model, calibrator = load_model(category, params)
+
+    if category == "flat":
         available = [f for f in FLAT_V2_FEATURES if f in df.columns]
         X = df[available].copy()
         for col in FLAT_V2_FEATURES:
             if col not in X.columns:
                 X[col] = np.nan
         X = X[FLAT_V2_FEATURES]
-
-        race_ids = df["race_id"].to_numpy()
-        probs = race_softmax(model.predict(X), race_ids)
     else:
-        model, calibrator = load_model(category, params)
         expected_features = model.feature_name()
-
         meta_cols = ["race_type", "course_name", "scheduled_off_utc", "horse_name", "trainer_name", "jockey_name"]
-        drop_list = FLAT_DROP if category == "flat" else JUMPS_DROP
+        drop_list = JUMPS_DROP
         drop_cols = [c for c in EXCLUDE + drop_list + meta_cols if c in df.columns]
         X = df.drop(columns=drop_cols, errors="ignore")
 
@@ -369,23 +368,23 @@ def load_and_score(target_date, category, params="tuned", flat_v2=False):
                 X[col] = np.nan
         X = X[expected_features]
 
-        race_ids = df["race_id"].to_numpy()
-        raw_scores = model.predict(X)
-        probs = race_softmax(raw_scores, race_ids)
+    race_ids = df["race_id"].to_numpy()
+    probs = race_softmax(model.predict(X), race_ids)
 
-        if calibrator:
-            probs = calibrator.transform(probs)
-            probs = np.nan_to_num(probs, nan=1e-6)
-            probs = np.clip(probs, 1e-6, 1.0)
-            probs = renormalize(probs, race_ids)
+    if calibrator:
+        probs = calibrator.transform(probs)
+        probs = np.nan_to_num(probs, nan=1e-6)
+        probs = np.clip(probs, 1e-6, 1.0)
+        probs = renormalize(probs, race_ids)
 
     return df, probs
 
 
 def print_predictions(df, probs, category, runner_data, live_odds, min_edge=0.0):
     """Print formatted race cards with live exchange odds."""
-    # Build selection_id lookup from runner_data
+    # Build lookups from runner_data
     sel_lookup = {r["runner_id"]: r.get("selection_id") for r in runner_data}
+    cloth_lookup = {r["runner_id"]: r.get("cloth_number") for r in runner_data}
 
     out = pd.DataFrame({
         "race_id": df["race_id"].values,
@@ -444,8 +443,11 @@ def print_predictions(df, probs, category, runner_data, live_odds, min_edge=0.0)
                     edge = f"{edge_val*100:+.1f}%"
                     if edge_val > min_edge:
                         marker = " <<< BET"
+                        cloth = cloth_lookup.get(row.get("runner_id"))
                         value_bets.append({
-                            "horse": row.get("horse"), "course": course,
+                            "cloth": cloth, "rank": i,
+                            "horse": row.get("horse"),
+                            "course": course, "time": uk_time,
                             "model_prob": row["model_prob"], "back": back,
                             "edge": edge_val, "avl": avl,
                         })
@@ -457,13 +459,14 @@ def print_predictions(df, probs, category, runner_data, live_odds, min_edge=0.0)
                 print(f"  {i:<3} {horse:<20} {trainer:<16} {jockey:<14} {prob:>6} {m_odds:>5}")
 
     if value_bets:
-        print(f"\n{'='*75}")
+        print(f"\n{'='*85}")
         print(f"  VALUE BETS — {category.upper()} ({len(value_bets)} selections, edge>{min_edge:.0%})")
-        print(f"{'='*75}")
-        print(f"  {'Horse':<22} {'Course':<12} {'Model%':>6} {'Back':>5} {'Edge':>6} {'Avail':>6}")
-        print(f"  {'-'*60}")
+        print(f"{'='*85}")
+        print(f"  {'Time':<6} {'No.':<4} {'Horse':<20} {'Course':<12} {'Rank':>4} {'Model%':>6} {'Back':>5} {'Edge':>6} {'Avail':>6}")
+        print(f"  {'-'*73}")
         for vb in sorted(value_bets, key=lambda x: x["edge"], reverse=True):
-            print(f"  {str(vb['horse'])[:21]:<22} {str(vb['course'])[:11]:<12} {vb['model_prob']*100:.1f}% {vb['back']:>5.1f} {vb['edge']*100:>+5.1f}% £{vb['avl']:>4.0f}")
+            cloth_str = str(vb['cloth']) if vb['cloth'] else "?"
+            print(f"  {str(vb['time']):<6} {cloth_str:<4} {str(vb['horse'])[:19]:<20} {str(vb['course'])[:11]:<12} {vb['rank']:>4} {vb['model_prob']*100:.1f}% {vb['back']:>5.1f} {vb['edge']*100:>+5.1f}% £{vb['avl']:>4.0f}")
 
     return out
 
@@ -472,15 +475,12 @@ def main():
     parser = argparse.ArgumentParser(description="Daily race predictions from Betfair API")
     parser.add_argument("--date", type=str, required=True, help="Date: YYYY-MM-DD, 'today', or 'tomorrow'")
     parser.add_argument("--params", type=str, default="tuned", choices=["tuned", "default"])
-    parser.add_argument("--min-edge", type=float, default=None)
-    parser.add_argument("--category", type=str, default=None, choices=["flat", "jumps"])
+    parser.add_argument("--min-edge", type=float, default=0.15)
+    parser.add_argument("--flat", action="store_true", help="Flat races only")
+    parser.add_argument("--jumps", action="store_true", help="Jumps races only")
     parser.add_argument("--output", type=str, default=None)
     parser.add_argument("--skip-rebuild", action="store_true", help="Skip feature store rebuild")
-    parser.add_argument("--flat-v2", action="store_true", help="Use CatBoost flat v2 model (64 features, no calibration)")
     args = parser.parse_args()
-
-    if args.min_edge is None:
-        args.min_edge = 0.15 if args.flat_v2 else 0.05
 
     target_date = resolve_date(args.date)
     print(f"Predictions for {target_date}", flush=True)
@@ -524,12 +524,17 @@ def main():
         print(f"  Could not fetch live odds: {e}", flush=True)
         live_odds = {}
 
-    categories = [args.category] if args.category else ["flat", "jumps"]
+    if args.flat:
+        categories = ["flat"]
+    elif args.jumps:
+        categories = ["jumps"]
+    else:
+        categories = ["flat", "jumps"]
     all_outputs = []
 
     for category in categories:
         print(f"\nScoring {category} races...", flush=True)
-        df, probs = load_and_score(target_date, category, args.params, flat_v2=args.flat_v2)
+        df, probs = load_and_score(target_date, category, args.params)
 
         if df is None:
             print(f"  No {category} runners found")

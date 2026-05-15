@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import pickle
 from datetime import datetime
 from pathlib import Path
@@ -18,9 +19,11 @@ from src.constants.windows import (
     WALK_FORWARD_WINDOWS,
 )
 
+DB_PATH = os.environ.get("RACING_DB", "racing.duckdb")
+
 
 def load_data(start, end, race_category):
-    db = get_db("racing.duckdb")
+    db = get_db(DB_PATH)
     if race_category == "flat":
         type_filter = "AND ra.race_type = 'Flat'"
     else:
@@ -210,7 +213,7 @@ def train_model(category, train_start="2015-01-01"):
     ndcg1 = evals.get("valid_0", {}).get("ndcg@1", [None])[-1]
 
     # Value analysis on TEST
-    db2 = get_db("racing.duckdb")
+    db2 = get_db(DB_PATH)
     sp_df = db2.execute("SELECT runner_id, sp_decimal FROM results WHERE sp_decimal IS NOT NULL AND sp_decimal > 1").df()
     test_analysis = df_test[["race_id", "runner_id"]].copy()
     test_analysis["prob"] = test_probs
@@ -270,7 +273,7 @@ def train_model(category, train_start="2015-01-01"):
 
 def run_value_analysis(df_test, test_probs, y_test, category):
     """Run value betting analysis — no filters for flat, smart filters for jumps."""
-    db = get_db("racing.duckdb")
+    db = get_db(DB_PATH)
     sp_df = db.execute("SELECT runner_id, sp_decimal FROM results WHERE sp_decimal IS NOT NULL AND sp_decimal > 1").df()
     race_info = db.execute("SELECT race_id, is_handicap, race_class, field_size, going_code, race_type FROM races").df()
     cr = db.execute("SELECT runner_id, career_runs FROM feature_store").df()
@@ -362,7 +365,7 @@ def run_value_analysis(df_test, test_probs, y_test, category):
 
 
 def load_flat_v2_data(start, end, handicap_filter=None, feature_list=None):
-    db = get_db("racing.duckdb")
+    db = get_db(DB_PATH)
 
     if handicap_filter == "handicap":
         hcap_sql = "AND ra.is_handicap = TRUE"
@@ -480,7 +483,7 @@ def train_flat_v2(train_start="2015-01-01", use_catboost=True):
     print(f"\n  Calibration (raw softmax on TEST):", flush=True)
     print(cal_table.to_string(index=False), flush=True)
 
-    db2 = get_db("racing.duckdb")
+    db2 = get_db(DB_PATH)
     sp_df = db2.execute("SELECT runner_id, sp_decimal FROM results WHERE sp_decimal IS NOT NULL AND sp_decimal > 1").df()
     race_info = db2.execute("SELECT race_id, is_handicap, race_class FROM races").df()
     db2.close()
@@ -566,7 +569,7 @@ def walk_forward_flat_v2(use_catboost=True):
     print(f"  FLAT V2 WALK-FORWARD ({'CatBoost' if use_catboost else 'LightGBM'}, no isotonic cal)", flush=True)
     print(f"{'='*70}", flush=True)
 
-    db = get_db("racing.duckdb")
+    db = get_db(DB_PATH)
     sp_df = db.execute("SELECT runner_id, sp_decimal FROM results WHERE sp_decimal IS NOT NULL AND sp_decimal > 1").df()
     race_info = db.execute("SELECT race_id, is_handicap, race_class FROM races").df()
     db.close()
