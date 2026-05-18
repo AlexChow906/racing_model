@@ -61,6 +61,17 @@ def _column_null_rates(con: duckdb.DuckDBPyConnection, table_name: str) -> list[
 
 
 def _prepare_upstream_inputs(con: duckdb.DuckDBPyConnection) -> None:
+    for table, col, col_type in [
+        ("horse_history", "non_completion", "VARCHAR"),
+        ("results", "non_completion", "VARCHAR"),
+        ("runners", "sex", "VARCHAR"),
+    ]:
+        existing = {r[0] for r in con.execute(
+            f"SELECT column_name FROM information_schema.columns WHERE table_name='{table}'"
+        ).fetchall()}
+        if col not in existing:
+            con.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+
     con.execute(
         """
         UPDATE horse_history hh
@@ -252,6 +263,8 @@ def _materialize_feature_store(con: duckdb.DuckDBPyConnection) -> int:
                 f005.horse_class_delta AS horse_class_delta,
                 f001.horse_form_trend,
                 f001.horse_first_time_headgear,
+                f001.horse_pu_rate,
+                f001.horse_nc_last_5,
                 f002.draw_position,
                 f002.draw_field_percentile,
                 f002.draw_course_going_win_rate,
@@ -399,6 +412,8 @@ def _materialize_feature_store(con: duckdb.DuckDBPyConnection) -> int:
             p.horse_class_delta,
             p.horse_form_trend,
             p.horse_first_time_headgear,
+            p.horse_pu_rate,
+            p.horse_nc_last_5,
             p.draw_position,
             p.draw_field_percentile,
             p.draw_course_going_win_rate,

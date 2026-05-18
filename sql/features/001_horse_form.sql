@@ -45,6 +45,7 @@ prior AS (
         hh.race_class AS prior_race_class,
         hh.headgear AS prior_headgear,
         hh.field_size AS prior_field_size,
+        hh.non_completion AS prior_non_completion,
         CASE
             WHEN LOWER(COALESCE(hh.going_code, '')) IN ('firm', 'good to firm', 'standard to fast') THEN 'fast'
             WHEN LOWER(COALESCE(hh.going_code, '')) IN ('good', 'standard', 'good to yielding') THEN 'good'
@@ -157,7 +158,12 @@ agg AS (
         END AS horse_form_trend,
         MAX(prior_headgear)
             FILTER (WHERE rn_desc = 1) AS last_run_headgear,
-        MAX(prior_scheduled_off_utc) AS latest_prior_scheduled_off_utc
+        MAX(prior_scheduled_off_utc) AS latest_prior_scheduled_off_utc,
+        CASE WHEN COUNT(*) > 0
+            THEN SUM(CASE WHEN prior_non_completion IN ('PU', 'F', 'UR', 'BD', 'RO', 'SU', 'RR') THEN 1 ELSE 0 END)::DOUBLE / COUNT(*)
+            ELSE NULL
+        END AS horse_pu_rate,
+        COALESCE(SUM(CASE WHEN prior_non_completion IS NOT NULL THEN 1 ELSE 0 END) FILTER (WHERE rn_desc <= 5), 0) AS horse_nc_last_5
     FROM prior
     GROUP BY 1, 2, 3
 )
@@ -201,6 +207,8 @@ SELECT
             THEN 1
         ELSE 0
     END AS horse_first_time_headgear,
+    a.horse_pu_rate,
+    a.horse_nc_last_5,
     COALESCE(a.latest_prior_scheduled_off_utc, ra.decision_cutoff_utc - INTERVAL 1 SECOND) AS event_timestamp_utc,
     ra.decision_cutoff_utc
 FROM agg a

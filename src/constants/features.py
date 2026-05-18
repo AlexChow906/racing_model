@@ -44,6 +44,13 @@ JUMPS_DROP = DROP_LOW_IMPORTANCE + [
     "draw_bias_coefficient",
     "is_jumps",
     "surface_encoded",
+    "is_handicap",
+    "race_grade",
+    "prize_money_log",
+    "pace_hold_up_horses",
+    "pace_pressure_index",
+    "distance_furlongs",
+    "field_avg_rating",
 ]
 
 FLAT_V2_FEATURES = [
