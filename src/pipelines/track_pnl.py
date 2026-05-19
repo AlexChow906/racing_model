@@ -82,34 +82,47 @@ def compute_pnl(bets: pd.DataFrame, results: pd.DataFrame) -> pd.DataFrame:
     return merged
 
 
+def _print_category_summary(settled: pd.DataFrame, label: str):
+    total_staked = settled["stake"].sum()
+    total_profit = settled["profit"].sum()
+    winners = int(settled["won_actual"].sum())
+    roi = total_profit / total_staked * 100 if total_staked > 0 else 0
+    print(f"  {label:<10} Bets: {len(settled):<5} |  P&L: {total_profit:+.2f}u  |  ROI: {roi:+.1f}%")
+
+
 def print_single_day(pnl: pd.DataFrame, target_date: date):
     settled = pnl[pnl["settled"]].copy()
     if settled.empty:
         print(f"No settled bets for {target_date}.")
         return
 
+    print(f"\n  {target_date}")
+
+    for cat in sorted(settled["category"].dropna().unique()):
+        cat_settled = settled[settled["category"] == cat]
+        print(f"  {'-'*62}")
+        print(f"  {cat.upper()}")
+        print(f"  {'Horse':<22} {'Course':<12} {'Time':<6} {'Back':>5} {'SP':>6} {'W':>3} {'P&L':>7}")
+        print(f"  {'-'*62}")
+
+        for _, r in cat_settled.sort_values("time").iterrows():
+            horse = str(r.get("horse", "?"))[:21]
+            course = str(r.get("course", ""))[:11]
+            time_str = str(r.get("time", ""))[:5]
+            back = f"{r['back_odds']:.1f}" if pd.notna(r.get("back_odds")) else "-"
+            sp = f"{r['sp']:.1f}" if r["sp"] > 0 else "-"
+            won_str = "Y" if r["won_actual"] else ""
+            pnl_str = f"{r['profit']:+.2f}"
+            print(f"  {horse:<22} {course:<12} {time_str:<6} {back:>5} {sp:>6} {won_str:>3} {pnl_str:>7}")
+
+        _print_category_summary(cat_settled, cat.upper())
+
+    print(f"  {'='*62}")
     total_staked = settled["stake"].sum()
     total_profit = settled["profit"].sum()
     winners = int(settled["won_actual"].sum())
     roi = total_profit / total_staked * 100 if total_staked > 0 else 0
-
-    print(f"\n  {target_date}")
-    print(f"  {'-'*62}")
-    print(f"  {'Horse':<22} {'Course':<12} {'Time':<6} {'Back':>5} {'SP':>6} {'W':>3} {'P&L':>7}")
-    print(f"  {'-'*62}")
-
-    for _, r in settled.sort_values("time").iterrows():
-        horse = str(r.get("horse", "?"))[:21]
-        course = str(r.get("course", ""))[:11]
-        time_str = str(r.get("time", ""))[:5]
-        back = f"{r['back_odds']:.1f}" if pd.notna(r.get("back_odds")) else "-"
-        sp = f"{r['sp']:.1f}" if r["sp"] > 0 else "-"
-        won_str = "Y" if r["won_actual"] else ""
-        pnl_str = f"{r['profit']:+.2f}"
-        print(f"  {horse:<22} {course:<12} {time_str:<6} {back:>5} {sp:>6} {won_str:>3} {pnl_str:>7}")
-
-    print(f"  {'-'*62}")
-    print(f"  {len(settled)} bets | {winners}W | P&L: {total_profit:+.2f}u | ROI: {roi:+.1f}%")
+    print(f"  {'TOTAL':<10} Bets: {len(settled):<5} |  P&L: {total_profit:+.2f}u  |  ROI: {roi:+.1f}%")
 
 
 def print_range(pnl: pd.DataFrame, date_from: date | None, date_to: date | None):
@@ -117,11 +130,6 @@ def print_range(pnl: pd.DataFrame, date_from: date | None, date_to: date | None)
     if settled.empty:
         print("No settled bets in this range.")
         return
-
-    total_staked = settled["stake"].sum()
-    total_profit = settled["profit"].sum()
-    winners = int(settled["won_actual"].sum())
-    roi = total_profit / total_staked * 100 if total_staked > 0 else 0
 
     label = "All-time"
     if date_from and date_to:
@@ -132,7 +140,14 @@ def print_range(pnl: pd.DataFrame, date_from: date | None, date_to: date | None)
         label = f"Up to {date_to}"
 
     print(f"\n  {label}")
-    print(f"  Bets: {len(settled)}  |  P&L: {total_profit:+.2f}u  |  ROI: {roi:+.1f}%")
+
+    for cat in sorted(settled["category"].dropna().unique()):
+        _print_category_summary(settled[settled["category"] == cat], cat.upper())
+
+    total_staked = settled["stake"].sum()
+    total_profit = settled["profit"].sum()
+    roi = total_profit / total_staked * 100 if total_staked > 0 else 0
+    print(f"  {'TOTAL':<10} Bets: {len(settled):<5} |  P&L: {total_profit:+.2f}u  |  ROI: {roi:+.1f}%")
 
     pending = pnl[~pnl["settled"]]
     if not pending.empty:

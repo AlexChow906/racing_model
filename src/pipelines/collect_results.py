@@ -66,6 +66,7 @@ def _download_text(url: str) -> str:
 
 
 def find_sp_csvs_for_date(target_date: date) -> list[dict[str, str]]:
+    file_date_needed = target_date + timedelta(days=1)
     html = _download_text(SP_INDEX_URL)
     matches = []
     seen: set[str] = set()
@@ -74,7 +75,7 @@ def find_sp_csvs_for_date(target_date: date) -> list[dict[str, str]]:
             continue
         seen.add(filename)
         file_date = _parse_date_from_filename(filename)
-        if file_date != target_date:
+        if file_date != file_date_needed:
             continue
         if not any(tok in filename.lower() for tok in INCLUDE_TOKENS):
             continue
@@ -97,6 +98,10 @@ def _safe_float(value: Any) -> float | None:
         return None
 
 
+def _compact(name: str) -> str:
+    return _ALPHA_ONLY.sub("", name.lower())
+
+
 def parse_sp_csv(csv_text: str, source_filename: str) -> list[dict[str, Any]]:
     normalised = csv_text.replace("\r\n", "\n").replace("\r", "\n")
     reader = csv.DictReader(io.StringIO(normalised))
@@ -105,16 +110,13 @@ def parse_sp_csv(csv_text: str, source_filename: str) -> list[dict[str, Any]]:
         if not raw:
             continue
         lowered = {str(k).lower(): v for k, v in raw.items()}
-        event_id = str(lowered.get("event_id") or "").strip()
         selection_name = str(lowered.get("selection_name") or "").strip()
-        if not event_id or not selection_name:
+        if not selection_name:
             continue
 
-        market_type = "win"
         if "place" in source_filename.lower():
             continue
 
-        race_id = f"bfsp_{event_id}_{market_type}"
         horse_id = slugify(selection_name)
         if not horse_id:
             continue
@@ -123,10 +125,7 @@ def parse_sp_csv(csv_text: str, source_filename: str) -> list[dict[str, Any]]:
         bsp = _safe_float(lowered.get("bsp"))
 
         rows.append({
-            "race_id": race_id,
-            "horse_id": horse_id,
-            "runner_id": f"{race_id}_{horse_id}",
-            "result_id": f"{race_id}_{horse_id}_res",
+            "compact_horse": _compact(horse_id),
             "sp_decimal": bsp,
             "won": won,
             "finishing_position": 1 if won else None,
@@ -134,36 +133,33 @@ def parse_sp_csv(csv_text: str, source_filename: str) -> list[dict[str, Any]]:
     return rows
 
 
-def _compact(name: str) -> str:
-    return _ALPHA_ONLY.sub("", name.lower())
-
-
-def update_results_in_db(rows: list[dict[str, Any]], db_path: str | Path) -> dict[str, int]:
+def update_results_in_db(rows: list[dict[str, Any]], target_date: date, db_path: str | Path) -> dict[str, int]:
     if not rows:
         return {"matched": 0, "updated": 0, "not_found": 0}
 
     con = get_db(str(db_path))
 
-    race_ids = list({r["race_id"] for r in rows})
-    placeholders = ",".join(["?"] * len(race_ids))
     db_results = con.execute(
-        f"SELECT result_id, race_id, horse_id FROM results WHERE race_id IN ({placeholders})",
-        race_ids,
+        """SELECT res.result_id, res.horse_id
+           FROM results res
+           JOIN races ra ON res.race_id = ra.race_id
+           WHERE ra.race_date = ?""",
+        [target_date],
     ).fetchall()
 
-    lookup: dict[tuple[str, str], str] = {}
-    for result_id, race_id, horse_id in db_results:
-        compact_horse = _compact(horse_id)
-        lookup[(race_id, compact_horse)] = result_id
+    lookup: dict[str, str] = {}
+    for result_id, horse_id in db_results:
+        lookup[_compact(horse_id)] = result_id
 
     updated = 0
     not_found = 0
+    already = set()
 
     for row in rows:
-        compact_horse = _compact(row["horse_id"])
-        result_id = lookup.get((row["race_id"], compact_horse))
+        key = row["compact_horse"]
+        result_id = lookup.get(key)
 
-        if result_id:
+        if result_id and result_id not in already:
             con.execute(
                 """UPDATE results
                    SET sp_decimal = ?,
@@ -180,6 +176,7 @@ def update_results_in_db(rows: list[dict[str, Any]], db_path: str | Path) -> dic
                 ],
             )
             updated += 1
+            already.add(result_id)
         else:
             not_found += 1
 
@@ -215,7 +212,7 @@ def main():
         all_rows.extend(rows)
 
     print(f"Updating DB with {len(all_rows)} results...", flush=True)
-    stats = update_results_in_db(all_rows, db_path)
+    stats = update_results_in_db(all_rows, target_date, db_path)
     print(f"  Updated: {stats['updated']}, Not in DB: {stats['not_found']}", flush=True)
 
 

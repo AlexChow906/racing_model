@@ -196,6 +196,9 @@ def fetch_live_odds(market_ids: list[str]) -> dict:
         )
         for book in books:
             for runner in book.runners:
+                status = runner.status if hasattr(runner, "status") else None
+                if status and status != "ACTIVE":
+                    continue
                 back = runner.ex.available_to_back[0].price if runner.ex.available_to_back else None
                 lay = runner.ex.available_to_lay[0].price if runner.ex.available_to_lay else None
                 back_size = runner.ex.available_to_back[0].size if runner.ex.available_to_back else 0
@@ -578,6 +581,18 @@ def main():
     all_outputs = []
     all_value_bets = []
 
+    # Build set of active selection_ids (have odds = still running)
+    active_sels = set(live_odds.keys()) if live_odds else set()
+    sel_to_runner = {r.get("selection_id"): r.get("runner_id") for r in runners}
+    non_runner_ids = set()
+    if active_sels:
+        for r in runners:
+            sel = r.get("selection_id")
+            if sel and sel not in active_sels:
+                non_runner_ids.add(r.get("runner_id"))
+        if non_runner_ids:
+            print(f"  {len(non_runner_ids)} non-runners detected (no odds), excluding from scoring", flush=True)
+
     for category in categories:
         print(f"\nScoring {category} races...", flush=True)
         df, probs = load_and_score(target_date, category, args.params)
@@ -585,6 +600,15 @@ def main():
         if df is None:
             print(f"  No {category} runners found")
             continue
+
+        if non_runner_ids and "runner_id" in df.columns:
+            mask = ~df["runner_id"].isin(non_runner_ids)
+            if mask.sum() < len(df):
+                removed = len(df) - mask.sum()
+                df = df[mask].reset_index(drop=True)
+                probs = probs[mask.values] if hasattr(mask, 'values') else probs[mask]
+                probs = renormalize(probs, df["race_id"].to_numpy())
+                print(f"  Removed {removed} non-runners, re-normalised probabilities", flush=True)
 
         n_races = df["race_id"].nunique()
         print(f"  {len(df)} runners across {n_races} races", flush=True)
