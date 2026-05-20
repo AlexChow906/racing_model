@@ -1,13 +1,13 @@
 # racing_model
 
-Price-blind horse racing value model. Predicts win probabilities from fundamentals, compares to Betfair SP to find value bets. Flat uses CatBoost YetiRank (66 features, no calibration). Jumps uses LightGBM LambdaRank + isotonic calibration (64 features).
+Price-blind horse racing value model. Predicts win probabilities from fundamentals, compares to Betfair SP to find value bets. Flat uses CatBoost YetiRank (66 features, no calibration). Jumps uses LightGBM LambdaRank + isotonic calibration (59 features).
 
 ## Results (Walk-Forward Validation, 2022-2026, edge>15%)
 
-| Model | Bets | ROI |
-|-------|------|-----|
-| Flat  | 1,804 | +47.4% |
-| Jumps | 2,397 | +27.9% |
+| Model | Bets | Winners | ROI | P&L |
+|-------|------|---------|-----|-----|
+| Flat  | 1,875 | 412 (22.0%) | +45.5% | +853u |
+| Jumps | 2,235 | 398 (17.8%) | +18.4% | +412u |
 
 All windows positive for both models.
 
@@ -56,10 +56,10 @@ python -m src.pipelines.daily_predictions --date tomorrow --min-edge 0.12
 - Collateral form: subsequent win/place rate of beaten opponents
 - Horse sex: sex encoded, is female
 
-**Jumps model (64 features, LightGBM + isotonic calibration):**
+**Jumps model (59 features, LightGBM + isotonic calibration):**
 - Same as flat minus draw features, plus:
 - Non-completion: pulled-up rate, recent non-completions (F/PU/UR/BD)
-- Completion/fall safety features
+- Optuna-tuned hyperparameters (depth 5, high min_split_gain for regularisation)
 
 ## Project Layout
 
@@ -122,9 +122,9 @@ python -m src.ingestion.betfair_historical \
     --end-year 2026 --end-month 5
 ```
 
-2. Place rpscrape CSV exports under `data/raw/rpscrape/`, then enrich:
+2. Enrich with rpscrape data (scrape CSVs live in `data/raw/rpscrape_repo/data/region/`):
 ```bash
-python -m src.ingestion.rpscrape_enrich --input-glob "data/raw/rpscrape/**/*.csv"
+python -m src.ingestion.rpscrape_enrich
 ```
 
 3. Build feature store and train:
@@ -132,6 +132,25 @@ python -m src.ingestion.rpscrape_enrich --input-glob "data/raw/rpscrape/**/*.csv
 python -m src.pipelines.run_phase2_feature_store
 python -m src.modeling.train_split --flat-v2
 ```
+
+## Retraining Models
+
+Run weekly or after adding significant new data. The retrain script validates results before updating production models.
+
+```bash
+# Step 1: Run walk-forward validation on latest data
+./scripts/retrain.sh
+
+# Step 2: Review results. If happy, train and save production models
+./scripts/retrain.sh --approve
+```
+
+This will:
+1. Rebuild the feature store on `racing.duckdb` (latest data)
+2. Run walk-forward for flat and jumps (verify ROI hasn't degraded)
+3. On `--approve`: snapshot `racing.duckdb` as the new `racing_backtest.duckdb`, then train production models
+
+The old `racing_backtest.duckdb` is preserved until you approve.
 
 ## Value Betting Approach
 
