@@ -643,7 +643,7 @@ def enrich_from_rpscrape(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Enrich SP spine with rpscrape fundamentals")
     parser.add_argument("--db-path", type=str, default=str(DB_PATH))
-    parser.add_argument("--input-glob", type=str, default="data/raw/rpscrape/**/*.csv")
+    parser.add_argument("--input-glob", type=str, default="data/raw/rpscrape_repo/data/region/**/*.csv")
     parser.add_argument("--min-confidence", type=str, choices=["low", "medium", "high"], default="medium")
     parser.add_argument("--countries", type=str, default="GB,IE", help="Comma-separated race countries to enrich")
     parser.add_argument("--dry-run", action="store_true")
