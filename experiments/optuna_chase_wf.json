@@ -1,0 +1,17 @@
+{
+  "best_params": {
+    "learning_rate": 0.02130583262549536,
+    "num_leaves": 23,
+    "min_child_samples": 177,
+    "subsample": 0.9070702696059816,
+    "colsample_bytree": 0.8667107765487567,
+    "reg_alpha": 1.4145972277049622e-05,
+    "reg_lambda": 6.000459849841326e-05,
+    "max_depth": 5,
+    "min_split_gain": 2.1930455541456615
+  },
+  "best_roi": 0.8849457447239429,
+  "bets": 519,
+  "pnl": 459.2868415117264,
+  "n_trials": 80
+}

@@ -51,6 +51,10 @@ JUMPS_DROP = DROP_LOW_IMPORTANCE + [
     "pace_pressure_index",
     "distance_furlongs",
     "field_avg_rating",
+    "horse_nc_last_5",
+    "horse_pu_rate",
+    "is_female",
+    "sex_encoded",
 ]
 
 FLAT_V2_FEATURES = [

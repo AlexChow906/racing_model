@@ -117,14 +117,25 @@ def fetch_race_cards(target_date: date):
 
     for m in sorted(markets, key=lambda x: x.market_start_time):
         event_name = m.event.name if m.event else "Unknown"
+        market_name = m.market_name if hasattr(m, "market_name") and m.market_name else ""
         scheduled_off = m.market_start_time
         decision_cutoff = decision_cutoff_for_off_time(scheduled_off)
         race_id = f"bfsp_{m.market_id}_win"
         course_id = slugify(event_name)
         course_lower = event_name.lower()
+        market_lower = market_name.lower()
         country = "IE" if any(kw in course_lower for kw in IRE_KEYWORDS) else "GB"
 
-        is_jumps_course = any(kw in course_lower for kw in JUMPS_COURSES)
+        if any(kw in market_lower for kw in ("chase", "steeple", "steeplechase")):
+            race_type = "Chase"
+        elif any(kw in market_lower for kw in ("hurdle", "hdle", "hrd")):
+            race_type = "Hurdle"
+        elif any(kw in market_lower for kw in ("nh flat", "nhf", "bumper", "national hunt flat")):
+            race_type = "NH Flat"
+        elif any(kw in course_lower for kw in JUMPS_COURSES):
+            race_type = "Hurdle"
+        else:
+            race_type = "Flat"
 
         races.append({
             "race_id": race_id,
@@ -136,7 +147,7 @@ def fetch_race_cards(target_date: date):
             "decision_cutoff_utc": decision_cutoff,
             "field_size": len(m.runners),
             "country": country,
-            "is_jumps_course": is_jumps_course,
+            "race_type": race_type,
         })
 
         for runner in m.runners:
@@ -222,14 +233,13 @@ def insert_into_db(races, runners, target_date):
     con.execute(f"DELETE FROM races WHERE race_date = '{target_str}'")
 
     for race in races:
-        race_type = "Hurdle" if race["is_jumps_course"] else "Flat"
         con.execute("""INSERT INTO races (race_id, source_race_id, course_id, course_name, race_date,
             scheduled_off_utc, field_size, country, race_type,
             event_timestamp_utc, decision_cutoff_utc, ingest_timestamp_utc, is_standard_race)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,TRUE)""",
             [race["race_id"], race["market_id"], race["course_id"], race["course_name"],
              race["race_date"], race["scheduled_off_utc"], race["field_size"], race["country"],
-             race_type, race["scheduled_off_utc"], race["decision_cutoff_utc"], now_utc])
+             race["race_type"], race["scheduled_off_utc"], race["decision_cutoff_utc"], now_utc])
 
     for r in runners:
         con.execute("""INSERT INTO runners (runner_id, race_id, horse_id, horse_name,
@@ -326,10 +336,13 @@ def load_and_score(target_date, category, params="tuned"):
     """Load features and score runners."""
     db = get_db(str(ROOT / "racing.duckdb"))
 
-    if category == "flat":
-        type_filter = "AND ra.race_type = 'Flat'"
-    else:
-        type_filter = "AND ra.race_type IN ('Chase', 'Hurdle', 'NH Flat')"
+    type_filters = {
+        "flat": "AND ra.race_type = 'Flat'",
+        "jumps": "AND ra.race_type IN ('Chase', 'Hurdle', 'NH Flat')",
+        "chase": "AND ra.race_type = 'Chase'",
+        "hurdle": "AND ra.race_type IN ('Hurdle', 'NH Flat')",
+    }
+    type_filter = type_filters[category]
 
     df = db.execute(f"""
         SELECT fs.*, ra.race_type, ra.course_name, ra.scheduled_off_utc,
@@ -355,7 +368,7 @@ def load_and_score(target_date, category, params="tuned"):
             if col not in X.columns:
                 X[col] = np.nan
         X = X[FLAT_V2_FEATURES]
-    else:
+    elif category in ("jumps", "chase", "hurdle"):
         expected_features = model.feature_name()
         meta_cols = ["race_type", "course_name", "scheduled_off_utc", "horse_name", "trainer_name", "jockey_name"]
         drop_list = JUMPS_DROP
@@ -575,9 +588,9 @@ def main():
     if args.flat:
         categories = ["flat"]
     elif args.jumps:
-        categories = ["jumps"]
+        categories = ["chase", "hurdle"]
     else:
-        categories = ["flat", "jumps"]
+        categories = ["flat", "chase", "hurdle"]
     all_outputs = []
     all_value_bets = []
 

@@ -1,15 +1,16 @@
 # racing_model
 
-Price-blind horse racing value model. Predicts win probabilities from fundamentals, compares to Betfair SP to find value bets. Flat uses CatBoost YetiRank (66 features, no calibration). Jumps uses LightGBM LambdaRank + isotonic calibration (59 features).
+Price-blind horse racing value model. Predicts win probabilities from fundamentals, compares to Betfair SP to find value bets. Flat uses CatBoost YetiRank (66 features, no calibration). Chase and Hurdle use separate LightGBM LambdaRank + isotonic calibration models (59 features each).
 
 ## Results (Walk-Forward Validation, 2022-2026, edge>15%)
 
-| Model | Bets | Winners | ROI | P&L |
-|-------|------|---------|-----|-----|
-| Flat  | 1,875 | 412 (22.0%) | +45.5% | +853u |
-| Jumps | 2,235 | 398 (17.8%) | +18.4% | +412u |
+| Model | Bets | ROI | P&L |
+|-------|------|-----|-----|
+| Flat  | 1,875 | +45.5% | +853u |
+| Chase | 519 | +88.5% | +459u |
+| Hurdle | 1,276 | +35.0% | +447u |
 
-All windows positive for both models.
+All windows positive. Jumps is split into separate chase and hurdle models with independently tuned hyperparameters (walk-forward Optuna).
 
 ## Quick Start
 
@@ -56,10 +57,14 @@ python -m src.pipelines.daily_predictions --date tomorrow --min-edge 0.12
 - Collateral form: subsequent win/place rate of beaten opponents
 - Horse sex: sex encoded, is female
 
-**Jumps model (59 features, LightGBM + isotonic calibration):**
+**Chase model (59 features, LightGBM + isotonic calibration):**
 - Same as flat minus draw features, plus:
 - Non-completion: pulled-up rate, recent non-completions (F/PU/UR/BD)
-- Optuna-tuned hyperparameters (depth 5, high min_split_gain for regularisation)
+- Trained on chase races only — learns fence-jumping and fall-risk patterns
+
+**Hurdle model (59 features, LightGBM + isotonic calibration):**
+- Same feature set as chase, trained on hurdle + NH Flat races only
+- Both models use Optuna-tuned hyperparameters (walk-forward optimised)
 
 ## Project Layout
 
@@ -74,7 +79,8 @@ src/
   modeling/          Training, tuning, validation
 models/
   tuned/flat/        Production CatBoost flat model (.cbm)
-  tuned/jumps/       Production LightGBM jumps model (.lgbm)
+  tuned/chase/       Production LightGBM chase model (.lgbm)
+  tuned/hurdle/      Production LightGBM hurdle model (.lgbm)
 experiments/         Training metadata and validation results
 data/raw/            Raw rpscrape CSVs (not committed)
 racing.duckdb        Analytical database (not committed)

@@ -1,0 +1,359 @@
+{
+  "best_params": {
+    "learning_rate": 0.046521572461074294,
+    "num_leaves": 100,
+    "min_child_samples": 67,
+    "subsample": 0.6120385573688437,
+    "colsample_bytree": 0.46277225756319507,
+    "reg_alpha": 3.1067988094813206e-07,
+    "reg_lambda": 0.061547112308111086,
+    "max_depth": 10,
+    "min_split_gain": 2.4031703962345343
+  },
+  "best_roi_e15_wf": 0.23704332300952372,
+  "total_bets": 2096,
+  "total_pnl": 496.84280502796173,
+  "n_trials": 100,
+  "top_trials": [
+    {
+      "number": 66,
+      "roi_e15_wf": 0.23704332300952372,
+      "total_bets": 2096,
+      "total_pnl": 496.84280502796173,
+      "params": {
+        "learning_rate": 0.046521572461074294,
+        "num_leaves": 100,
+        "min_child_samples": 67,
+        "subsample": 0.6120385573688437,
+        "colsample_bytree": 0.46277225756319507,
+        "reg_alpha": 3.1067988094813206e-07,
+        "reg_lambda": 0.061547112308111086,
+        "max_depth": 10,
+        "min_split_gain": 2.4031703962345343
+      }
+    },
+    {
+      "number": 45,
+      "roi_e15_wf": 0.2122881189053193,
+      "total_bets": 2310,
+      "total_pnl": 490.38555467128754,
+      "params": {
+        "learning_rate": 0.058727399268709825,
+        "num_leaves": 94,
+        "min_child_samples": 90,
+        "subsample": 0.5082819388373153,
+        "colsample_bytree": 0.5469231206737473,
+        "reg_alpha": 0.00038896953109747413,
+        "reg_lambda": 0.04893307311878401,
+        "max_depth": 9,
+        "min_split_gain": 2.020918924207877
+      }
+    },
+    {
+      "number": 60,
+      "roi_e15_wf": 0.20981142679780115,
+      "total_bets": 2266,
+      "total_pnl": 475.43269312381744,
+      "params": {
+        "learning_rate": 0.06098542693673286,
+        "num_leaves": 94,
+        "min_child_samples": 82,
+        "subsample": 0.6630040513090293,
+        "colsample_bytree": 0.566403980489747,
+        "reg_alpha": 8.31992735940147e-06,
+        "reg_lambda": 0.4444947259074495,
+        "max_depth": 10,
+        "min_split_gain": 2.2144491008262497
+      }
+    },
+    {
+      "number": 37,
+      "roi_e15_wf": 0.201839340983355,
+      "total_bets": 2317,
+      "total_pnl": 467.66175305843353,
+      "params": {
+        "learning_rate": 0.06957906323611728,
+        "num_leaves": 95,
+        "min_child_samples": 78,
+        "subsample": 0.5772610622706525,
+        "colsample_bytree": 0.6870897248134558,
+        "reg_alpha": 1.1750037574024833e-06,
+        "reg_lambda": 1.3816927145412709e-08,
+        "max_depth": 10,
+        "min_split_gain": 2.470316589545689
+      }
+    },
+    {
+      "number": 82,
+      "roi_e15_wf": 0.19688356149613515,
+      "total_bets": 2259,
+      "total_pnl": 444.7599654197693,
+      "params": {
+        "learning_rate": 0.041588272471104755,
+        "num_leaves": 128,
+        "min_child_samples": 15,
+        "subsample": 0.5560890665320954,
+        "colsample_bytree": 0.8808885713332801,
+        "reg_alpha": 0.00015573699846566552,
+        "reg_lambda": 2.0634733374453772e-05,
+        "max_depth": 9,
+        "min_split_gain": 1.0161355104095464
+      }
+    },
+    {
+      "number": 99,
+      "roi_e15_wf": 0.1898852397998174,
+      "total_bets": 2280,
+      "total_pnl": 432.9383467435837,
+      "params": {
+        "learning_rate": 0.061989184071313805,
+        "num_leaves": 105,
+        "min_child_samples": 87,
+        "subsample": 0.5503668356823191,
+        "colsample_bytree": 0.6537156409908712,
+        "reg_alpha": 0.0001058651595445418,
+        "reg_lambda": 4.91651779144794e-07,
+        "max_depth": 11,
+        "min_split_gain": 0.7738557529707849
+      }
+    },
+    {
+      "number": 61,
+      "roi_e15_wf": 0.18856785478405735,
+      "total_bets": 2305,
+      "total_pnl": 434.6489052772522,
+      "params": {
+        "learning_rate": 0.05968319262583384,
+        "num_leaves": 94,
+        "min_child_samples": 81,
+        "subsample": 0.6744739045018074,
+        "colsample_bytree": 0.5703596836050612,
+        "reg_alpha": 7.386466495485026e-06,
+        "reg_lambda": 0.48311126298363566,
+        "max_depth": 10,
+        "min_split_gain": 2.2068739087117897
+      }
+    },
+    {
+      "number": 38,
+      "roi_e15_wf": 0.1820413977855507,
+      "total_bets": 1981,
+      "total_pnl": 360.62400901317596,
+      "params": {
+        "learning_rate": 0.03539236191943996,
+        "num_leaves": 89,
+        "min_child_samples": 75,
+        "subsample": 0.43500998514798966,
+        "colsample_bytree": 0.6683834387492222,
+        "reg_alpha": 1.3005082171780407e-06,
+        "reg_lambda": 1.024995022942481e-08,
+        "max_depth": 9,
+        "min_split_gain": 2.5948240675187897
+      }
+    },
+    {
+      "number": 74,
+      "roi_e15_wf": 0.1677533894389605,
+      "total_bets": 2383,
+      "total_pnl": 399.7563270330429,
+      "params": {
+        "learning_rate": 0.0759879095315856,
+        "num_leaves": 127,
+        "min_child_samples": 41,
+        "subsample": 0.5580086025944013,
+        "colsample_bytree": 0.6918736427246125,
+        "reg_alpha": 9.700634118151504e-06,
+        "reg_lambda": 0.0016843590767425766,
+        "max_depth": 8,
+        "min_split_gain": 2.49621251022642
+      }
+    },
+    {
+      "number": 85,
+      "roi_e15_wf": 0.1668613185348096,
+      "total_bets": 2391,
+      "total_pnl": 398.96541261672974,
+      "params": {
+        "learning_rate": 0.07470226167053813,
+        "num_leaves": 82,
+        "min_child_samples": 77,
+        "subsample": 0.6090949012759853,
+        "colsample_bytree": 0.6342754663731389,
+        "reg_alpha": 6.69300781964625e-07,
+        "reg_lambda": 1.8306802692562874e-05,
+        "max_depth": 9,
+        "min_split_gain": 0.9849782955601523
+      }
+    },
+    {
+      "number": 23,
+      "roi_e15_wf": 0.1568635664910102,
+      "total_bets": 2498,
+      "total_pnl": 391.84518909454346,
+      "params": {
+        "learning_rate": 0.05795326272415197,
+        "num_leaves": 135,
+        "min_child_samples": 12,
+        "subsample": 0.56934512334213,
+        "colsample_bytree": 0.9404087892960777,
+        "reg_alpha": 0.004817807354936964,
+        "reg_lambda": 4.036924073534364e-06,
+        "max_depth": 12,
+        "min_split_gain": 0.9907320167969216
+      }
+    },
+    {
+      "number": 20,
+      "roi_e15_wf": 0.1554378310171064,
+      "total_bets": 2319,
+      "total_pnl": 360.46033012866974,
+      "params": {
+        "learning_rate": 0.055161444789334914,
+        "num_leaves": 138,
+        "min_child_samples": 12,
+        "subsample": 0.4868893411706589,
+        "colsample_bytree": 0.8690442755749473,
+        "reg_alpha": 6.492591186545557e-05,
+        "reg_lambda": 0.0001632075943289847,
+        "max_depth": 8,
+        "min_split_gain": 1.2519927359755503
+      }
+    },
+    {
+      "number": 49,
+      "roi_e15_wf": 0.15275356818565586,
+      "total_bets": 2384,
+      "total_pnl": 364.1645065546036,
+      "params": {
+        "learning_rate": 0.07118045821365321,
+        "num_leaves": 109,
+        "min_child_samples": 92,
+        "subsample": 0.5173505968812556,
+        "colsample_bytree": 0.5727692276016223,
+        "reg_alpha": 0.0019303538446003648,
+        "reg_lambda": 1.6465164119486386,
+        "max_depth": 9,
+        "min_split_gain": 2.9946843844840307
+      }
+    },
+    {
+      "number": 11,
+      "roi_e15_wf": 0.15219942232785952,
+      "total_bets": 2444,
+      "total_pnl": 371.97538816928864,
+      "params": {
+        "learning_rate": 0.061402843939239296,
+        "num_leaves": 172,
+        "min_child_samples": 58,
+        "subsample": 0.6224584262742341,
+        "colsample_bytree": 0.9979833813709786,
+        "reg_alpha": 26.599818231295668,
+        "reg_lambda": 1.3650168787312303e-06,
+        "max_depth": 10,
+        "min_split_gain": 1.5273123693000756
+      }
+    },
+    {
+      "number": 88,
+      "roi_e15_wf": 0.150610617548727,
+      "total_bets": 1491,
+      "total_pnl": 224.56043076515198,
+      "params": {
+        "learning_rate": 0.009254490752822668,
+        "num_leaves": 98,
+        "min_child_samples": 73,
+        "subsample": 0.6825360089054808,
+        "colsample_bytree": 0.5591978544835068,
+        "reg_alpha": 3.676226976682292e-07,
+        "reg_lambda": 0.0026802853120799818,
+        "max_depth": 9,
+        "min_split_gain": 2.255585664234164
+      }
+    },
+    {
+      "number": 33,
+      "roi_e15_wf": 0.14851727637138157,
+      "total_bets": 2172,
+      "total_pnl": 322.57952427864075,
+      "params": {
+        "learning_rate": 0.0787055606064583,
+        "num_leaves": 161,
+        "min_child_samples": 20,
+        "subsample": 0.6159464935470907,
+        "colsample_bytree": 0.8973299166770445,
+        "reg_alpha": 1.7065859196434543e-05,
+        "reg_lambda": 5.700371922355301e-05,
+        "max_depth": 10,
+        "min_split_gain": 1.0701990734035915
+      }
+    },
+    {
+      "number": 69,
+      "roi_e15_wf": 0.14755207628940792,
+      "total_bets": 2085,
+      "total_pnl": 307.6460790634155,
+      "params": {
+        "learning_rate": 0.036794719446256355,
+        "num_leaves": 85,
+        "min_child_samples": 60,
+        "subsample": 0.5752275544341464,
+        "colsample_bytree": 0.42893199905997115,
+        "reg_alpha": 1.1033647967501905e-06,
+        "reg_lambda": 0.011697285922963804,
+        "max_depth": 11,
+        "min_split_gain": 1.8707368572194178
+      }
+    },
+    {
+      "number": 18,
+      "roi_e15_wf": 0.14409416032932107,
+      "total_bets": 1786,
+      "total_pnl": 257.3521703481674,
+      "params": {
+        "learning_rate": 0.014750356748249944,
+        "num_leaves": 140,
+        "min_child_samples": 47,
+        "subsample": 0.5953570552935357,
+        "colsample_bytree": 0.998948323466378,
+        "reg_alpha": 9.209415425384504e-05,
+        "reg_lambda": 0.005225318864940978,
+        "max_depth": 11,
+        "min_split_gain": 1.249788113504
+      }
+    },
+    {
+      "number": 83,
+      "roi_e15_wf": 0.14383925246433155,
+      "total_bets": 2261,
+      "total_pnl": 325.22054982185364,
+      "params": {
+        "learning_rate": 0.039335333348504066,
+        "num_leaves": 131,
+        "min_child_samples": 18,
+        "subsample": 0.556362950183093,
+        "colsample_bytree": 0.9785994307654908,
+        "reg_alpha": 0.0001613907378642745,
+        "reg_lambda": 1.4365384528408497e-06,
+        "max_depth": 9,
+        "min_split_gain": 2.516604911661797
+      }
+    },
+    {
+      "number": 84,
+      "roi_e15_wf": 0.14382089654213379,
+      "total_bets": 2133,
+      "total_pnl": 306.76997232437134,
+      "params": {
+        "learning_rate": 0.042018489549623,
+        "num_leaves": 112,
+        "min_child_samples": 25,
+        "subsample": 0.5378142459476445,
+        "colsample_bytree": 0.46642938837439174,
+        "reg_alpha": 4.179019661427293e-06,
+        "reg_lambda": 2.0280371227450322e-08,
+        "max_depth": 10,
+        "min_split_gain": 0.8659629503405828
+      }
+    }
+  ]
+}
