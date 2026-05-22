@@ -126,16 +126,15 @@ def fetch_race_cards(target_date: date):
         market_lower = market_name.lower()
         country = "IE" if any(kw in course_lower for kw in IRE_KEYWORDS) else "GB"
 
-        if any(kw in market_lower for kw in ("chase", "steeple", "steeplechase")):
+        if any(kw in market_lower for kw in ("chase", "steeple", "steeplechase", "chs")):
             race_type = "Chase"
         elif any(kw in market_lower for kw in ("hurdle", "hdle", "hrd")):
             race_type = "Hurdle"
-        elif any(kw in market_lower for kw in ("nh flat", "nhf", "bumper", "national hunt flat")):
+        elif any(kw in market_lower for kw in ("nh flat", "nhf", "inhf", "bumper", "national hunt flat")):
             race_type = "NH Flat"
-        elif any(kw in course_lower for kw in JUMPS_COURSES):
-            race_type = "Hurdle"
         else:
             race_type = "Flat"
+
 
         races.append({
             "race_id": race_id,

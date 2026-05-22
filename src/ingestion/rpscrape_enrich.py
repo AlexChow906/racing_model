@@ -260,6 +260,7 @@ def enrich_from_rpscrape(
     min_confidence: str = "medium",
     countries: tuple[str, ...] = ("GB", "IE"),
     dry_run: bool = False,
+    target_date: datetime.date | None = None,
 ) -> dict[str, Any]:
     csv_paths = sorted(ROOT.glob(input_glob))
     if not csv_paths:
@@ -272,6 +273,8 @@ def enrich_from_rpscrape(
         }
 
     source_rows = _load_rpscrape_rows(csv_paths)
+    if target_date:
+        source_rows = [row for row in source_rows if row.race_date == target_date]
     if not source_rows:
         return {
             "status": "no_parseable_rows",
@@ -307,6 +310,16 @@ def enrich_from_rpscrape(
         }
 
     races_df["race_date"] = pd.to_datetime(races_df["race_date"]).dt.date
+    if target_date:
+        races_df = races_df[races_df["race_date"] == target_date]
+        if races_df.empty:
+            return {
+                "status": "no_target_races_for_date",
+                "target_date": str(target_date),
+                "matched_rows": 0,
+                "unmatched_rows": len(source_rows),
+                "ambiguous_rows": 0,
+            }
     country_set = {c.strip().upper() for c in countries if c.strip()}
     if country_set:
         races_df["country"] = races_df["country"].fillna("").astype(str).str.upper()

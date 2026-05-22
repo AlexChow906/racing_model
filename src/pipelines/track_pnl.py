@@ -34,6 +34,13 @@ def _parse_date(s: str) -> date:
     return datetime.strptime(s, "%Y-%m-%d").date()
 
 
+def _normalize_bfsp_id(value: str | None) -> str | None:
+    if value is None or pd.isna(value):
+        return value
+    text = str(value)
+    return text.replace("bfsp_1.", "bfsp_")
+
+
 def load_bets(date_from: date | None = None, date_to: date | None = None) -> pd.DataFrame:
     if not BETS_LOG.exists():
         return pd.DataFrame()
@@ -44,30 +51,84 @@ def load_bets(date_from: date | None = None, date_to: date | None = None) -> pd.
         df = df[df["date"] >= date_from]
     if date_to:
         df = df[df["date"] <= date_to]
+    df["race_id_norm"] = df["race_id"].apply(_normalize_bfsp_id)
+    df["runner_id_norm"] = df["runner_id"].apply(_normalize_bfsp_id)
     return df
 
 
-def fetch_results(runner_ids: list[str], db_path: str) -> pd.DataFrame:
-    if not runner_ids:
+def fetch_results(runner_ids: list[str], runner_ids_norm: list[str], db_path: str) -> pd.DataFrame:
+    if not runner_ids and not runner_ids_norm:
         return pd.DataFrame()
 
     con = get_db(db_path)
-    placeholders = ",".join(["?"] * len(runner_ids))
+    all_ids = [rid for rid in runner_ids if rid] + [rid for rid in runner_ids_norm if rid]
+    placeholders = ",".join(["?"] * len(all_ids))
     df = con.execute(
         f"""SELECT runner_id, sp_decimal, won, finishing_position
             FROM results
             WHERE runner_id IN ({placeholders})""",
-        runner_ids,
+        all_ids,
     ).df()
     con.close()
+    if df.empty:
+        return df
+
+    df["runner_id_norm"] = df["runner_id"].apply(_normalize_bfsp_id)
+    df = df.sort_values(by=["sp_decimal"], ascending=False, na_position="last")
+    df = df.drop_duplicates(subset=["runner_id_norm"], keep="first")
     return df
+
+
+def apply_race_type_categories(bets: pd.DataFrame, db_path: str) -> pd.DataFrame:
+    if bets.empty:
+        return bets
+
+    race_ids = bets["race_id"].dropna().unique().tolist()
+    race_ids_norm = bets["race_id_norm"].dropna().unique().tolist()
+    if not race_ids:
+        return bets
+
+    con = get_db(db_path)
+    all_ids = [rid for rid in race_ids if rid] + [rid for rid in race_ids_norm if rid]
+    placeholders = ",".join(["?"] * len(all_ids))
+    races = con.execute(
+        f"""SELECT race_id, race_type
+            FROM races
+            WHERE race_id IN ({placeholders})""",
+        all_ids,
+    ).df()
+    con.close()
+
+    if races.empty:
+        return bets
+
+    races["race_id_norm"] = races["race_id"].apply(_normalize_bfsp_id)
+    race_type_map = dict(zip(races["race_id_norm"], races["race_type"]))
+
+    def _map_category(race_id: str, fallback: str | None) -> str | None:
+        race_type = race_type_map.get(race_id)
+        if race_type == "Chase":
+            return "chase"
+        if race_type in ("Hurdle", "NH Flat"):
+            return "hurdle"
+        if race_type == "Flat":
+            return "flat"
+        return fallback
+
+    bets = bets.copy()
+    bets["category_orig"] = bets["category"]
+    bets["category"] = [
+        _map_category(race_id, cat)
+        for race_id, cat in zip(bets["race_id_norm"], bets["category"], strict=False)
+    ]
+    return bets
 
 
 def compute_pnl(bets: pd.DataFrame, results: pd.DataFrame) -> pd.DataFrame:
     if bets.empty:
         return pd.DataFrame()
 
-    merged = bets.merge(results, on="runner_id", how="left", suffixes=("", "_actual"))
+    merged = bets.merge(results, on="runner_id_norm", how="left", suffixes=("", "_actual"))
 
     merged["settled"] = merged["sp_decimal"].notna()
     merged["won_actual"] = merged["won"].fillna(False)
@@ -82,12 +143,13 @@ def compute_pnl(bets: pd.DataFrame, results: pd.DataFrame) -> pd.DataFrame:
     return merged
 
 
-def _print_category_summary(settled: pd.DataFrame, label: str):
+def _print_category_summary(settled: pd.DataFrame, label: str, indent: int = 0):
     total_staked = settled["stake"].sum()
     total_profit = settled["profit"].sum()
     winners = int(settled["won_actual"].sum())
     roi = total_profit / total_staked * 100 if total_staked > 0 else 0
-    print(f"  {label:<10} Bets: {len(settled):<5} |  P&L: {total_profit:+.2f}u  |  ROI: {roi:+.1f}%")
+    prefix = " " * indent
+    print(f"  {prefix}{label:<10} Bets: {len(settled):<5} |  P&L: {total_profit:+.2f}u  |  ROI: {roi:+.1f}%")
 
 
 def print_single_day(pnl: pd.DataFrame, target_date: date):
@@ -141,7 +203,19 @@ def print_range(pnl: pd.DataFrame, date_from: date | None, date_to: date | None)
 
     print(f"\n  {label}")
 
-    for cat in sorted(settled["category"].dropna().unique()):
+    flat = settled[settled["category"] == "flat"]
+    hurdle = settled[settled["category"] == "hurdle"]
+    chase = settled[settled["category"] == "chase"]
+    jumps_extra = settled[settled["category"] == "jumps"]
+    jumps = pd.concat([hurdle, chase, jumps_extra], ignore_index=True)
+
+    _print_category_summary(flat, "FLAT")
+    _print_category_summary(jumps, "JUMPS")
+    _print_category_summary(hurdle, "HURDLE", indent=2)
+    _print_category_summary(chase, "CHASE", indent=2)
+
+    known = {"flat", "hurdle", "chase", "jumps"}
+    for cat in sorted(set(settled["category"].dropna().unique()) - known):
         _print_category_summary(settled[settled["category"] == cat], cat.upper())
 
     total_staked = settled["stake"].sum()
@@ -160,6 +234,11 @@ def main():
     parser.add_argument("--from", type=str, default=None, dest="date_from", help="Start date (YYYY-MM-DD)")
     parser.add_argument("--to", type=str, default=None, dest="date_to", help="End date (YYYY-MM-DD)")
     parser.add_argument("--db", type=str, default=None)
+    parser.add_argument(
+        "--split-jumps",
+        action="store_true",
+        help="Reclassify jumps bets into hurdle/chase using races.race_type",
+    )
     args = parser.parse_args()
 
     if args.date:
@@ -176,7 +255,14 @@ def main():
         print("No bets found in log. Run daily_predictions first.")
         return
 
-    results = fetch_results(bets["runner_id"].tolist(), db_path)
+    if args.split_jumps:
+        bets = apply_race_type_categories(bets, db_path)
+
+    results = fetch_results(
+        bets["runner_id"].tolist(),
+        bets["runner_id_norm"].tolist(),
+        db_path,
+    )
     pnl = compute_pnl(bets, results)
 
     if pnl.empty or not pnl["settled"].any():
