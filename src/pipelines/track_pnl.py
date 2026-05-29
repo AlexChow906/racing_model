@@ -2,7 +2,8 @@
 Track P&L from daily value bets against settled results.
 
 Reads the bet log (logs/daily_bets.csv), joins with actual results from the DB,
-and computes P&L assuming 1-unit level stakes at BSP.
+and computes P&L at the backed price (the scraped odds the edge was judged on),
+keeping BSP alongside as a benchmark. 1-unit level stakes.
 
 Usage:
     python -m src.pipelines.track_pnl                          # all-time summary
@@ -124,6 +125,11 @@ def apply_race_type_categories(bets: pd.DataFrame, db_path: str) -> pd.DataFrame
     return bets
 
 
+def _settle_profit(odds: float, won: bool, stake: float) -> float:
+    """Profit for a settled bet at decimal `odds`: (odds-1)*stake on a win, else -stake."""
+    return (odds - 1) * stake if won else -stake
+
+
 def compute_pnl(bets: pd.DataFrame, results: pd.DataFrame) -> pd.DataFrame:
     if bets.empty:
         return pd.DataFrame()
@@ -134,22 +140,32 @@ def compute_pnl(bets: pd.DataFrame, results: pd.DataFrame) -> pd.DataFrame:
     merged["won_actual"] = merged["won"].fillna(False)
     merged["sp"] = merged["sp_decimal"].fillna(0)
 
-    merged["profit"] = merged.apply(
-        lambda r: (r["sp"] - 1) * r["stake"] if r["won_actual"] else -r["stake"]
-        if r["settled"] else 0,
-        axis=1,
-    )
+    # Headline P&L settles at the price we actually backed (the scraped odds the edge
+    # was judged on); profit_bsp keeps the BSP figure as the backtest benchmark. Fall
+    # back to SP only if a back price is missing, so no settled bet is silently dropped.
+    def _profit(r, odds_col):
+        if not r["settled"]:
+            return 0.0
+        odds = r[odds_col]
+        if pd.isna(odds) or odds <= 0:
+            odds = r["sp"]
+        return _settle_profit(odds, r["won_actual"], r["stake"])
+
+    merged["profit"] = merged.apply(lambda r: _profit(r, "back_odds"), axis=1)
+    merged["profit_bsp"] = merged.apply(lambda r: _profit(r, "sp"), axis=1)
 
     return merged
 
 
 def _print_category_summary(settled: pd.DataFrame, label: str, indent: int = 0):
-    total_staked = settled["stake"].sum()
-    total_profit = settled["profit"].sum()
-    winners = int(settled["won_actual"].sum())
-    roi = total_profit / total_staked * 100 if total_staked > 0 else 0
+    staked = settled["stake"].sum()
+    profit = settled["profit"].sum()
+    profit_bsp = settled["profit_bsp"].sum()
+    roi = profit / staked * 100 if staked > 0 else 0
+    roi_bsp = profit_bsp / staked * 100 if staked > 0 else 0
     prefix = " " * indent
-    print(f"  {prefix}{label:<10} Bets: {len(settled):<5} |  P&L: {total_profit:+.2f}u  |  ROI: {roi:+.1f}%")
+    print(f"  {prefix}{label:<10} Bets: {len(settled):<5} |  "
+          f"P&L: {profit:+.2f}u (ROI {roi:+.1f}%)  |  BSP: {profit_bsp:+.2f}u (ROI {roi_bsp:+.1f}%)")
 
 
 def print_single_day(pnl: pd.DataFrame, target_date: date):
@@ -164,8 +180,8 @@ def print_single_day(pnl: pd.DataFrame, target_date: date):
         cat_settled = settled[settled["category"] == cat]
         print(f"  {'-'*62}")
         print(f"  {cat.upper()}")
-        print(f"  {'Horse':<22} {'Course':<12} {'Time':<6} {'Back':>5} {'SP':>6} {'W':>3} {'P&L':>7}")
-        print(f"  {'-'*62}")
+        print(f"  {'Horse':<22} {'Course':<12} {'Time':<6} {'Back':>5} {'SP':>6} {'W':>3} {'P&L':>8} {'BSP':>8}")
+        print(f"  {'-'*70}")
 
         for _, r in cat_settled.sort_values("time").iterrows():
             horse = str(r.get("horse", "?"))[:21]
@@ -175,16 +191,19 @@ def print_single_day(pnl: pd.DataFrame, target_date: date):
             sp = f"{r['sp']:.1f}" if r["sp"] > 0 else "-"
             won_str = "Y" if r["won_actual"] else ""
             pnl_str = f"{r['profit']:+.2f}"
-            print(f"  {horse:<22} {course:<12} {time_str:<6} {back:>5} {sp:>6} {won_str:>3} {pnl_str:>7}")
+            pnl_bsp_str = f"{r['profit_bsp']:+.2f}"
+            print(f"  {horse:<22} {course:<12} {time_str:<6} {back:>5} {sp:>6} {won_str:>3} {pnl_str:>8} {pnl_bsp_str:>8}")
 
         _print_category_summary(cat_settled, cat.upper())
 
-    print(f"  {'='*62}")
+    print(f"  {'='*70}")
     total_staked = settled["stake"].sum()
     total_profit = settled["profit"].sum()
-    winners = int(settled["won_actual"].sum())
+    total_profit_bsp = settled["profit_bsp"].sum()
     roi = total_profit / total_staked * 100 if total_staked > 0 else 0
-    print(f"  {'TOTAL':<10} Bets: {len(settled):<5} |  P&L: {total_profit:+.2f}u  |  ROI: {roi:+.1f}%")
+    roi_bsp = total_profit_bsp / total_staked * 100 if total_staked > 0 else 0
+    print(f"  {'TOTAL':<10} Bets: {len(settled):<5} |  "
+          f"P&L: {total_profit:+.2f}u (ROI {roi:+.1f}%)  |  BSP: {total_profit_bsp:+.2f}u (ROI {roi_bsp:+.1f}%)")
 
 
 def print_range(pnl: pd.DataFrame, date_from: date | None, date_to: date | None):
@@ -220,8 +239,11 @@ def print_range(pnl: pd.DataFrame, date_from: date | None, date_to: date | None)
 
     total_staked = settled["stake"].sum()
     total_profit = settled["profit"].sum()
+    total_profit_bsp = settled["profit_bsp"].sum()
     roi = total_profit / total_staked * 100 if total_staked > 0 else 0
-    print(f"  {'TOTAL':<10} Bets: {len(settled):<5} |  P&L: {total_profit:+.2f}u  |  ROI: {roi:+.1f}%")
+    roi_bsp = total_profit_bsp / total_staked * 100 if total_staked > 0 else 0
+    print(f"  {'TOTAL':<10} Bets: {len(settled):<5} |  "
+          f"P&L: {total_profit:+.2f}u (ROI {roi:+.1f}%)  |  BSP: {total_profit_bsp:+.2f}u (ROI {roi_bsp:+.1f}%)")
 
     pending = pnl[~pnl["settled"]]
     if not pending.empty:
@@ -280,11 +302,16 @@ def main():
             winners=("won_actual", "sum"),
             total_staked=("stake", "sum"),
             total_profit=("profit", "sum"),
+            total_profit_bsp=("profit_bsp", "sum"),
         ).reset_index()
         daily["roi_pct"] = (daily["total_profit"] / daily["total_staked"] * 100).round(1)
         daily["cumulative_profit"] = daily["total_profit"].cumsum().round(2)
         daily["cumulative_staked"] = daily["total_staked"].cumsum()
         daily["cumulative_roi_pct"] = (daily["cumulative_profit"] / daily["cumulative_staked"] * 100).round(1)
+        daily["cumulative_profit_bsp"] = daily["total_profit_bsp"].cumsum().round(2)
+        daily["cumulative_roi_bsp_pct"] = (daily["cumulative_profit_bsp"] / daily["cumulative_staked"] * 100).round(1)
+        daily["total_profit"] = daily["total_profit"].round(2)
+        daily["total_profit_bsp"] = daily["total_profit_bsp"].round(2)
 
         PNL_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
         daily.to_csv(PNL_OUTPUT, index=False)

@@ -15,3 +15,5 @@ scipy>=1.11.0
 lightgbm>=4.1.0
 catboost>=1.2.0
 matplotlib>=3.7.0
+openai>=1.40.0
+optuna>=3.6.0

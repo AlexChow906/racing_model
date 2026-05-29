@@ -117,6 +117,36 @@ Automate with cron (runs daily at 9am):
 
 Value bets are logged to `logs/daily_bets.csv`. P&L summary is saved to `logs/pnl_tracker.csv`.
 
+## Discord Publishing + AI Agents (Paddock Edge)
+
+Step 4 of the daily pipeline (`publish_discord.py`) runs AI analysis on each pick and posts to Discord.
+
+**Race analysis agent** (tool-using): for each value bet, an LLM agent decides which tools to call, observes the results, loops, and returns a verdict — CONFIRM / NEUTRAL / FADE — with plain-language reasoning. It can disagree with the model.
+
+The agent has six read-only DuckDB tools (defined in `src/pipelines/agent_tools.py`), each a lookup against the racing database it can call in any order:
+
+- **`get_horse_history`** — the horse's last 10 runs (finishing position, course, going, race type, RPR, beaten lengths, non-completions), plus aggregated win/place/non-completion counts
+- **`get_trainer_form`** — the trainer's win rates: overall, at today's course, and on today's going
+- **`get_jockey_form`** — the jockey's win rates: overall and at today's course
+- **`get_going_record`** — the horse's record on a specific going / ground condition (runs, wins, places)
+- **`get_course_record`** — the horse's record at a specific course (venue-matched, ignoring the meeting date Betfair embeds in the course ID)
+- **`get_race_field`** — the other runners in the race (names, official ratings, age, draw, trainer/jockey) to gauge field strength
+
+Verdict routing:
+
+- **CONFIRM / NEUTRAL** → posted to #daily-picks immediately with the analysis
+- **FADE** → held back, moved to `logs/pending_review.csv`, and flagged in a private #review channel
+
+**Commentary** (single LLM calls): a morning preview for the posted picks, and a post-race summary when results settle (posted to #results).
+
+**Reviewing FADE picks:**
+```bash
+python -m src.pipelines.review_pending
+```
+Re-fetches live odds (model prob is fixed — price-blind — only odds/edge move), recomputes edge, and lets you accept (→ posts + adds to bet log) or reject (→ dropped). No re-scoring; runs in seconds.
+
+**LLM provider** is set by `LLM_PROVIDER` (default `groq`; also `anthropic`, `openai`). The agent and commentary use separate models — `AGENT_MODEL` (default `openai/gpt-oss-120b`, strong tool use) and `COMMENTARY_MODEL` (default `openai/gpt-oss-20b`, fast). Requires the matching API key. Discord needs `DISCORD_BOT_TOKEN` and the channel IDs. See `.env.example`.
+
 ## Historical Data Pipeline
 
 1. Download Betfair SP history:

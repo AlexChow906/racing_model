@@ -331,6 +331,78 @@ def renormalize(probs, race_ids):
     return out
 
 
+# Map raw feature names to punter-friendly signal labels (many features -> one label)
+FEATURE_LABELS = {
+    "horse_weighted_form": "recent form", "horse_form_trend": "improving form",
+    "horse_place_rate_last_5": "place record", "horse_place_rate_last_10": "place record",
+    "horse_avg_position_pct_last_5": "finishing positions", "position_consistency": "consistency",
+    "horse_improvement_index": "improving profile",
+    "avg_speed_last_3": "speed figures", "best_speed_last_5": "speed figures",
+    "last_run_speed": "speed figures",
+    "horse_best_rpr_rp_last_5": "Racing Post Rating", "horse_avg_rpr_last_3": "Racing Post Rating",
+    "horse_last_rpr": "Racing Post Rating", "horse_best_rpr_last_5": "Racing Post Rating",
+    "last_run_btn_lengths": "beaten distances", "avg_btn_last_3": "beaten distances",
+    "horse_class_delta": "class drop", "is_class_dropper": "class drop",
+    "prize_money_log": "race quality", "race_grade": "race grade",
+    "horse_days_since_last_run": "freshness", "horse_age": "age profile",
+    "career_runs": "experience", "career_win_rate": "career record",
+    "career_place_rate": "career record",
+    "runner_official_rating": "official rating", "rating_vs_top": "official rating",
+    "rating_vs_field_avg": "official rating", "field_avg_rating": "official rating",
+    "weight_vs_top": "weight", "weight_vs_field_avg": "weight", "weight_lbs": "weight",
+    "weight_change_lbs": "weight change",
+    "jockey_win_rate_90d": "jockey form", "jockey_win_rate_course_90d": "jockey course form",
+    "jockey_dist_win_rate_90d": "jockey form", "jockey_trainer_combo_win_rate": "jockey/trainer combo",
+    "jockey_upgrade_signal": "jockey upgrade", "jockey_runs_90d": "jockey form",
+    "trainer_win_rate_90d": "trainer form", "trainer_win_rate_course_90d": "trainer course form",
+    "trainer_course_going_win_rate": "trainer course form", "trainer_dist_alltime_win_rate": "trainer at distance",
+    "trainer_win_rate_going_90d": "trainer on going", "trainer_win_rate_dist_band_90d": "trainer at distance",
+    "trainer_fresh_win_rate": "trainer with fresh horses", "trainer_win_rate_14d": "trainer form",
+    "collateral_beaten_win_rate": "form of beaten rivals", "collateral_beaten_place_rate": "form of beaten rivals",
+    "collateral_beaten_count": "form of beaten rivals",
+    "draw_position": "draw", "draw_field_percentile": "draw", "draw_bias_coefficient": "draw bias",
+    "pace_pressure_index": "race pace", "pace_front_runners": "race pace", "pace_hold_up_horses": "race pace",
+    "horse_going_group_place_rate": "going suitability", "going_encoded": "going suitability",
+    "horse_distance_place_rate": "distance suitability", "horse_distance_affinity": "distance suitability",
+    "trip_change_furlongs": "trip change", "distance_furlongs": "race distance",
+    "horse_course_place_rate": "course record", "horse_course_affinity": "course record",
+}
+
+
+def _extract_signals(feature_names, shap_matrix, top_k=3):
+    """Top positive SHAP drivers per row -> deduped human-readable signal strings."""
+    n_feat = len(feature_names)
+    contribs = np.asarray(shap_matrix)[:, :n_feat]
+    out = []
+    for row in contribs:
+        order = np.argsort(row)[::-1]
+        labels = []
+        for idx in order:
+            if row[idx] <= 0:
+                break
+            lab = FEATURE_LABELS.get(feature_names[idx])
+            if lab and lab not in labels:
+                labels.append(lab)
+            if len(labels) >= top_k:
+                break
+        out.append(", ".join(labels))
+    return out
+
+
+def _compute_signals(model, X, category):
+    """Per-runner top model drivers via SHAP. Returns list aligned with X rows."""
+    try:
+        if category == "flat":
+            from catboost import Pool
+            shap = model.get_feature_importance(data=Pool(X), type="ShapValues")
+        else:
+            shap = model.predict(X, pred_contrib=True)
+        return _extract_signals(list(X.columns), shap)
+    except Exception as exc:  # signals are a nice-to-have; never break scoring
+        print(f"  (model signals unavailable: {exc})", flush=True)
+        return [""] * len(X)
+
+
 def load_and_score(target_date, category, params="tuned"):
     """Load features and score runners."""
     db = get_db(str(ROOT / "racing.duckdb"))
@@ -392,6 +464,9 @@ def load_and_score(target_date, category, params="tuned"):
         probs = np.clip(probs, 1e-6, 1.0)
         probs = renormalize(probs, race_ids)
 
+    df = df.copy()
+    df["model_signals"] = _compute_signals(model, X, category)
+
     return df, probs
 
 
@@ -411,6 +486,7 @@ def print_predictions(df, probs, category, runner_data, live_odds, min_edge=0.0)
         "jockey": df["jockey_name"].values if "jockey_name" in df.columns else None,
         "model_prob": probs,
         "model_odds": np.round(1.0 / np.clip(probs, 1e-6, 1.0), 1),
+        "signals": df["model_signals"].values if "model_signals" in df.columns else "",
     })
     out = out.sort_values(["race_id", "model_prob"], ascending=[True, False])
 
@@ -468,6 +544,7 @@ def print_predictions(df, probs, category, runner_data, live_odds, min_edge=0.0)
                             "model_prob": row["model_prob"], "back": back,
                             "edge": edge_val, "avl": avl,
                             "category": category,
+                            "model_signals": row.get("signals", ""),
                         })
 
                 print(f"  {i:<3} {horse:<20} {prob:>6} {m_odds:>5} {back_str:>5} {lay_str:>5} {avl_str:>5} {edge:>6}{marker}")
@@ -491,43 +568,51 @@ def print_predictions(df, probs, category, runner_data, live_odds, min_edge=0.0)
 
 BETS_LOG_COLS = [
     "date", "race_id", "runner_id", "horse", "course", "time",
-    "category", "model_prob", "back_odds", "edge", "stake",
+    "category", "model_prob", "back_odds", "edge", "stake", "model_signals",
 ]
 
 
-def save_bets_log(value_bets: list[dict], target_date: date):
+def save_bets_log(value_bets: list[dict], target_date: date, refresh: bool = False):
+    """Append today's bets to the log.
+
+    Pandas-based so it auto-migrates the schema: if the existing CSV predates the
+    model_signals column, old rows are backfilled empty rather than corrupting on
+    append. By default skips a date already present; refresh=True replaces it.
+    """
     if not value_bets:
         return
     log_path = ROOT / "logs" / "daily_bets.csv"
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
-    import csv
+    new_rows = pd.DataFrame([{
+        "date": str(target_date),
+        "race_id": vb.get("race_id"),
+        "runner_id": vb.get("runner_id"),
+        "horse": vb.get("horse"),
+        "course": vb.get("course"),
+        "time": vb.get("time"),
+        "category": vb.get("category"),
+        "model_prob": round(vb["model_prob"], 4),
+        "back_odds": vb.get("back"),
+        "edge": round(vb["edge"], 4),
+        "stake": 1.0,
+        "model_signals": vb.get("model_signals", ""),
+    } for vb in value_bets])
+
     if log_path.exists():
-        tail = log_path.read_bytes().rstrip().split(b"\n")[-20:]
-        date_str = str(target_date)
-        if any(line.decode("utf-8", errors="ignore").startswith(date_str + ",") for line in tail):
+        existing = pd.read_csv(log_path)
+        already = (pd.to_datetime(existing["date"]).dt.date == target_date).any()
+        if already and not refresh:
             print(f"\n  Bets for {target_date} already logged (skipping)", flush=True)
             return
+        if already and refresh:
+            existing = existing[pd.to_datetime(existing["date"]).dt.date != target_date]
+            print(f"  Refreshing bets for {target_date}", flush=True)
+        combined = pd.concat([existing, new_rows], ignore_index=True)
+    else:
+        combined = new_rows
 
-    write_header = not log_path.exists()
-    with open(log_path, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=BETS_LOG_COLS)
-        if write_header:
-            writer.writeheader()
-        for vb in value_bets:
-            writer.writerow({
-                "date": str(target_date),
-                "race_id": vb.get("race_id"),
-                "runner_id": vb.get("runner_id"),
-                "horse": vb.get("horse"),
-                "course": vb.get("course"),
-                "time": vb.get("time"),
-                "category": vb.get("category"),
-                "model_prob": round(vb["model_prob"], 4),
-                "back_odds": vb.get("back"),
-                "edge": round(vb["edge"], 4),
-                "stake": 1.0,
-            })
+    combined.reindex(columns=BETS_LOG_COLS).to_csv(log_path, index=False)
     print(f"\n  Logged {len(value_bets)} bets to {log_path}", flush=True)
 
 
@@ -540,6 +625,7 @@ def main():
     parser.add_argument("--jumps", action="store_true", help="Jumps races only")
     parser.add_argument("--output", type=str, default=None)
     parser.add_argument("--skip-rebuild", action="store_true", help="Skip feature store rebuild")
+    parser.add_argument("--refresh", action="store_true", help="Replace today's bets in the log (re-log with fresh signals)")
     args = parser.parse_args()
 
     target_date = resolve_date(args.date)
@@ -631,7 +717,7 @@ def main():
         all_value_bets.extend(value_bets)
 
     if all_value_bets:
-        save_bets_log(all_value_bets, target_date)
+        save_bets_log(all_value_bets, target_date, refresh=args.refresh)
 
     if all_outputs and args.output:
         combined = pd.concat(all_outputs)
