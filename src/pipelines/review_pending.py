@@ -22,7 +22,7 @@ import argparse
 import csv
 import os
 import sys
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -39,14 +39,10 @@ load_dotenv(ROOT / ".env")
 from pipelines.daily_predictions import fetch_race_cards, fetch_live_odds
 from pipelines.ai_agents import generate_reviewed_pick_note
 from pipelines import publish_discord
+from pipelines.helpers import BETS_LOG_COLS
 
 BETS_LOG = ROOT / "logs" / "daily_bets.csv"
 PENDING_REVIEW = ROOT / "logs" / "pending_review.csv"
-
-BETS_LOG_COLS = [
-    "date", "race_id", "runner_id", "horse", "course", "time",
-    "category", "model_prob", "back_odds", "edge", "stake", "model_signals",
-]
 
 
 def _market_id_from_race_id(race_id: str) -> str:

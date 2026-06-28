@@ -22,7 +22,7 @@ import csv
 import os
 import sys
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -44,25 +44,15 @@ from pipelines.ai_agents import (
     generate_post_race_summary,
 )
 from pipelines import track_pnl
+from pipelines.helpers import resolve_date, BETS_LOG_COLS
 
 DB_PATH = str(ROOT / "racing.duckdb")
 BETS_LOG = ROOT / "logs" / "daily_bets.csv"
+TOP_PICKS_LOG = ROOT / "logs" / "daily_top_picks.csv"
 PENDING_REVIEW = ROOT / "logs" / "pending_review.csv"
 DISCORD_API = "https://discord.com/api/v10"
 
-PENDING_COLS = [
-    "date", "race_id", "runner_id", "horse", "course", "time", "category",
-    "model_prob", "back_odds", "edge", "stake", "model_signals",
-    "verdict", "confidence", "analysis",
-]
-
-
-def resolve_date(date_str: str) -> date:
-    if date_str == "today":
-        return date.today()
-    if date_str == "yesterday":
-        return date.today() - timedelta(days=1)
-    return datetime.strptime(date_str, "%Y-%m-%d").date()
+PENDING_COLS = BETS_LOG_COLS + ["verdict", "confidence", "analysis"]
 
 
 # ── Discord posting (REST, one-shot) ─────────────────────────────────
@@ -234,6 +224,88 @@ def format_results_message(target_date: date, settled: list[dict], summary: str)
     return "\n".join(lines)
 
 
+# ── Top picks (model's #1 per race) ──────────────────────────────────
+
+def load_top_picks(target_date: date) -> list[dict]:
+    """Read logs/daily_top_picks.csv, filter to target_date, sort by time then course."""
+    if not TOP_PICKS_LOG.exists():
+        return []
+    try:
+        df = pd.read_csv(TOP_PICKS_LOG)
+    except Exception:
+        return []
+    if df.empty:
+        return []
+    df = df[pd.to_datetime(df["date"]).dt.date == target_date]
+    if df.empty:
+        return []
+    return df.sort_values(["time", "course"]).to_dict("records")
+
+
+def format_top_picks_message(target_date: date, picks: list[dict]) -> list[str]:
+    """Render the model's #1-rated horse per race as monospace code-block tables.
+
+    Mirrors the columns daily_predictions prints to the terminal. Returns a list of
+    messages, each self-contained (its own code fence) and under Discord's char limit,
+    so a long card splits cleanly instead of breaking a fence mid-block.
+    """
+    if not picks:
+        return []
+
+    def num(v):
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return None
+        return None if f != f else f  # f != f is True for NaN
+
+    header = (
+        f"{'Time':<5} {'Course':<12} {'Cat':<6} {'Horse':<20} "
+        f"{'Model%':>6} {'MOdds':>5} {'Back':>5} {'Lay':>5} {'£Avl':>5} {'Edge':>6}"
+    )
+
+    def fmt_row(p):
+        prob, modds = num(p.get("model_prob")), num(p.get("model_odds"))
+        back, lay, avl, edge = (num(p.get(k)) for k in ("back", "lay", "avl", "edge"))
+        return (
+            f"{str(p.get('time', ''))[:5]:<5} "
+            f"{str(p.get('course', ''))[:12]:<12} "
+            f"{str(p.get('category', '')).upper()[:6]:<6} "
+            f"{str(p.get('horse', ''))[:20]:<20} "
+            f"{(f'{prob*100:.1f}%' if prob is not None else '-'):>6} "
+            f"{(f'{modds:.1f}' if modds is not None else '-'):>5} "
+            f"{(f'{back:.1f}' if back else '-'):>5} "
+            f"{(f'{lay:.1f}' if lay else '-'):>5} "
+            f"{(f'£{avl:.0f}' if avl else '-'):>5} "
+            f"{(f'{edge*100:+.1f}%' if edge is not None else '-'):>6}"
+        )
+
+    title = (
+        f"🏇 **MODEL TOP PICKS — {target_date:%d %b %Y}**\n"
+        f"_The model's #1-rated horse in every race today — raw model numbers, "
+        f"{len(picks)} race{'s' if len(picks) != 1 else ''}._"
+    )
+    cont = f"🏇 **MODEL TOP PICKS — {target_date:%d %b %Y}** (cont.)"
+
+    messages, chunk = [], []
+
+    def flush():
+        prefix = title if not messages else cont
+        block = "```\n" + header + "\n" + "\n".join(chunk) + "\n```"
+        messages.append(prefix + "\n" + block)
+
+    for row in (fmt_row(p) for p in picks):
+        projected = len("\n".join(chunk + [row])) + len(header) + 260
+        if chunk and projected > 1900:
+            flush()
+            chunk = []
+        chunk.append(row)
+    if chunk:
+        flush()
+
+    return messages
+
+
 # ── Pending review queue ─────────────────────────────────────────────
 
 def remove_from_bets_log(faded: list[dict], target_date: date) -> None:
@@ -314,6 +386,7 @@ def main():
     picks_channel = os.environ["DISCORD_PICKS_CHANNEL_ID"]
     results_channel = os.environ["DISCORD_RESULTS_CHANNEL_ID"]
     review_channel = os.environ.get("DISCORD_REVIEW_CHANNEL_ID")
+    top_picks_channel = os.environ.get("DISCORD_TOP_PICKS_CHANNEL_ID")
 
     # ── Today's picks ──
     bets_df = track_pnl.load_bets(target_date, target_date)
@@ -345,6 +418,16 @@ def main():
             if review_channel:
                 discord_post(review_channel, format_review_message(target_date, faded))
             print(f"  Queued {len(faded)} FADE picks for review (removed from bet log)", flush=True)
+
+    # ── Model top picks (private channel) ──
+    if top_picks_channel:
+        top_picks = load_top_picks(target_date)
+        if top_picks:
+            for msg in format_top_picks_message(target_date, top_picks):
+                discord_post(top_picks_channel, msg)
+            print(f"  Posted {len(top_picks)} top picks to #top-picks", flush=True)
+        else:
+            print(f"  No top picks logged for {target_date} to post", flush=True)
 
     # ── Yesterday's results ──
     if not args.skip_results:

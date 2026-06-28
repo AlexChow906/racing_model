@@ -139,6 +139,8 @@ Verdict routing:
 
 **Commentary** (single LLM calls): a morning preview for the posted picks, and a post-race summary when results settle (posted to #results).
 
+**Model top picks** (no AI): set `DISCORD_TOP_PICKS_CHANNEL_ID` to mirror the model's #1-rated horse in *every* race that day — not just value bets — to a private channel, with the same raw stats the daily script prints to the terminal (Model%, MOdds, Back, Lay, £Avl, Edge). Step 3 (`daily_predictions.py`) writes these to `logs/daily_top_picks.csv`; step 4 posts them. Skipped if the env var is unset.
+
 **Reviewing FADE picks:**
 ```bash
 python -m src.pipelines.review_pending

@@ -14,10 +14,9 @@ from __future__ import annotations
 import argparse
 import csv
 import io
-import os
 import re
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -31,20 +30,13 @@ if str(SRC_ROOT) not in sys.path:
 
 from ingestion.db_connect import get_db
 from ingestion.normalise import slugify
+from pipelines.helpers import resolve_date
 
 SP_INDEX_URL = "https://promo.betfair.com/betfairsp/prices"
 SP_FILE_PATTERN = re.compile(r'href="(/betfairsp/prices/([^"]+\.csv))"', re.IGNORECASE)
 SP_DATE_PATTERN = re.compile(r"(\d{2})(\d{2})(\d{4})\.csv$", re.IGNORECASE)
 INCLUDE_TOKENS = ("pricesukwin", "pricesirewin")
 _ALPHA_ONLY = re.compile(r"[^a-z0-9]")
-
-
-def resolve_date(date_str: str) -> date:
-    if date_str == "yesterday":
-        return date.today() - timedelta(days=1)
-    if date_str == "today":
-        return date.today()
-    return datetime.strptime(date_str, "%Y-%m-%d").date()
 
 
 def _parse_date_from_filename(filename: str) -> date | None:

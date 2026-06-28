@@ -15,14 +15,13 @@ import argparse
 import os
 import pickle
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
-from sklearn.isotonic import IsotonicRegression
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = ROOT / "src"
@@ -33,7 +32,8 @@ load_dotenv(ROOT / ".env")
 
 from ingestion.db_connect import get_db
 from ingestion.normalise import slugify, decision_cutoff_for_off_time
-from constants.features import EXCLUDE, FLAT_DROP, JUMPS_DROP, FLAT_V2_FEATURES, FLAT_V2_FEATURES
+from constants.features import EXCLUDE, JUMPS_DROP, FLAT_V2_FEATURES
+from pipelines.helpers import resolve_date, append_dated_csv, BETS_LOG_COLS
 
 MODELS_DIR = ROOT / "models"
 
@@ -52,14 +52,6 @@ JUMPS_COURSES = [
     "kelso", "ayr", "carlisle", "catterick", "doncaster", "haydock", "leicester",
     "newcastle", "southwell", "ffos las", "chepstow",
 ]
-
-
-def resolve_date(date_str: str) -> date:
-    if date_str == "today":
-        return date.today()
-    elif date_str == "tomorrow":
-        return date.today() + timedelta(days=1)
-    return datetime.strptime(date_str, "%Y-%m-%d").date()
 
 
 def get_betfair_client():
@@ -472,7 +464,6 @@ def load_and_score(target_date, category, params="tuned"):
 
 def print_predictions(df, probs, category, runner_data, live_odds, min_edge=0.0):
     """Print formatted race cards with live exchange odds."""
-    # Build lookups from runner_data
     sel_lookup = {r["runner_id"]: r.get("selection_id") for r in runner_data}
     cloth_lookup = {r["runner_id"]: r.get("cloth_number") for r in runner_data}
 
@@ -492,6 +483,7 @@ def print_predictions(df, probs, category, runner_data, live_odds, min_edge=0.0)
 
     has_live = len(live_odds) > 0
     value_bets = []
+    top_picks = []
 
     for race_id, group in out.groupby("race_id", sort=False):
         race = group.iloc[0]
@@ -514,6 +506,7 @@ def print_predictions(df, probs, category, runner_data, live_odds, min_edge=0.0)
             horse = str(row.get("horse", "?"))[:19]
             prob = f"{row['model_prob']*100:.1f}%"
             m_odds = f"{row['model_odds']:.1f}"
+            back = lay = avl = edge_val = None
 
             if has_live:
                 sel_id = sel_lookup.get(row.get("runner_id"))
@@ -553,6 +546,23 @@ def print_predictions(df, probs, category, runner_data, live_odds, min_edge=0.0)
                 jockey = str(row.get("jockey", ""))[:13]
                 print(f"  {i:<3} {horse:<20} {trainer:<16} {jockey:<14} {prob:>6} {m_odds:>5}")
 
+            if i == 1:
+                top_picks.append({
+                    "race_id": race_id,
+                    "runner_id": row.get("runner_id"),
+                    "horse": row.get("horse"),
+                    "course": course,
+                    "time": uk_time,
+                    "category": category,
+                    "model_prob": row["model_prob"],
+                    "model_odds": row["model_odds"],
+                    "back": back,
+                    "lay": lay,
+                    "avl": avl,
+                    "edge": edge_val,
+                    "model_signals": row.get("signals", ""),
+                })
+
     if value_bets:
         print(f"\n{'='*85}")
         print(f"  VALUE BETS — {category.upper()} ({len(value_bets)} selections, edge>{min_edge:.0%})")
@@ -563,27 +573,13 @@ def print_predictions(df, probs, category, runner_data, live_odds, min_edge=0.0)
             cloth_str = str(vb['cloth']) if vb['cloth'] else "?"
             print(f"  {str(vb['time']):<6} {cloth_str:<4} {str(vb['horse'])[:19]:<20} {str(vb['course'])[:11]:<12} {vb['rank']:>4} {vb['model_prob']*100:.1f}% {vb['back']:>5.1f} {vb['edge']*100:>+5.1f}% £{vb['avl']:>4.0f}")
 
-    return out, value_bets
-
-
-BETS_LOG_COLS = [
-    "date", "race_id", "runner_id", "horse", "course", "time",
-    "category", "model_prob", "back_odds", "edge", "stake", "model_signals",
-]
+    return out, value_bets, top_picks
 
 
 def save_bets_log(value_bets: list[dict], target_date: date, refresh: bool = False):
-    """Append today's bets to the log.
-
-    Pandas-based so it auto-migrates the schema: if the existing CSV predates the
-    model_signals column, old rows are backfilled empty rather than corrupting on
-    append. By default skips a date already present; refresh=True replaces it.
-    """
+    """Append today's value bets to logs/daily_bets.csv (date-deduped)."""
     if not value_bets:
         return
-    log_path = ROOT / "logs" / "daily_bets.csv"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-
     new_rows = pd.DataFrame([{
         "date": str(target_date),
         "race_id": vb.get("race_id"),
@@ -598,22 +594,42 @@ def save_bets_log(value_bets: list[dict], target_date: date, refresh: bool = Fal
         "stake": 1.0,
         "model_signals": vb.get("model_signals", ""),
     } for vb in value_bets])
+    append_dated_csv(ROOT / "logs" / "daily_bets.csv", new_rows, target_date,
+                     BETS_LOG_COLS, refresh=refresh, label="bets")
 
-    if log_path.exists():
-        existing = pd.read_csv(log_path)
-        already = (pd.to_datetime(existing["date"]).dt.date == target_date).any()
-        if already and not refresh:
-            print(f"\n  Bets for {target_date} already logged (skipping)", flush=True)
-            return
-        if already and refresh:
-            existing = existing[pd.to_datetime(existing["date"]).dt.date != target_date]
-            print(f"  Refreshing bets for {target_date}", flush=True)
-        combined = pd.concat([existing, new_rows], ignore_index=True)
-    else:
-        combined = new_rows
 
-    combined.reindex(columns=BETS_LOG_COLS).to_csv(log_path, index=False)
-    print(f"\n  Logged {len(value_bets)} bets to {log_path}", flush=True)
+TOP_PICKS_LOG_COLS = [
+    "date", "race_id", "runner_id", "horse", "course", "time", "category",
+    "model_prob", "model_odds", "back", "lay", "avl", "edge", "model_signals",
+]
+
+
+def save_top_picks(top_picks: list[dict], target_date: date, refresh: bool = False):
+    """Write the model's #1-rated horse per race to logs/daily_top_picks.csv.
+
+    Unlike save_bets_log this records every race (not just value bets), so a private
+    Discord channel can mirror the terminal's top-of-card view.
+    """
+    if not top_picks:
+        return
+    new_rows = pd.DataFrame([{
+        "date": str(target_date),
+        "race_id": tp.get("race_id"),
+        "runner_id": tp.get("runner_id"),
+        "horse": tp.get("horse"),
+        "course": tp.get("course"),
+        "time": tp.get("time"),
+        "category": tp.get("category"),
+        "model_prob": round(tp["model_prob"], 4),
+        "model_odds": tp.get("model_odds"),
+        "back": tp.get("back"),
+        "lay": tp.get("lay"),
+        "avl": tp.get("avl"),
+        "edge": round(tp["edge"], 4) if tp.get("edge") is not None else None,
+        "model_signals": tp.get("model_signals", ""),
+    } for tp in top_picks])
+    append_dated_csv(ROOT / "logs" / "daily_top_picks.csv", new_rows, target_date,
+                     TOP_PICKS_LOG_COLS, refresh=refresh, label="top picks")
 
 
 def main():
@@ -678,6 +694,7 @@ def main():
         categories = ["flat", "chase", "hurdle"]
     all_outputs = []
     all_value_bets = []
+    all_top_picks = []
 
     # Build set of active selection_ids (have odds = still running)
     active_sels = set(live_odds.keys()) if live_odds else set()
@@ -711,13 +728,17 @@ def main():
         n_races = df["race_id"].nunique()
         print(f"  {len(df)} runners across {n_races} races", flush=True)
 
-        out, value_bets = print_predictions(df, probs, category, runners, live_odds, min_edge=args.min_edge)
+        out, value_bets, top_picks = print_predictions(df, probs, category, runners, live_odds, min_edge=args.min_edge)
         out["category"] = category
         all_outputs.append(out)
         all_value_bets.extend(value_bets)
+        all_top_picks.extend(top_picks)
 
     if all_value_bets:
         save_bets_log(all_value_bets, target_date, refresh=args.refresh)
+
+    if all_top_picks:
+        save_top_picks(all_top_picks, target_date, refresh=args.refresh)
 
     if all_outputs and args.output:
         combined = pd.concat(all_outputs)
