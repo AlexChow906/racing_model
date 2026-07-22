@@ -359,6 +359,9 @@ def _sp_row_to_records(raw: dict[str, Any], source_filename: str) -> tuple[dict[
         raise ValueError("missing selection data")
 
     market_type = _market_type_from_filename(source_filename)
+    # SP CSVs omit the "1." exchange prefix that the Betfair API includes.
+    if not event_id.startswith("1."):
+        event_id = f"1.{event_id}"
     race_id = f"bfsp_{event_id}_{market_type.lower()}"
     scheduled_off_utc = _parse_sp_event_dt(raw.get("event_dt"))
     decision_cutoff_utc = decision_cutoff_for_off_time(scheduled_off_utc)

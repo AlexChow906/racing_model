@@ -519,6 +519,8 @@ def enrich_from_rpscrape(
                 "weight_lbs": src.weight_lbs,
                 "official_rating": src.official_rating,
                 "headgear": src.headgear,
+                "finishing_position": src.finishing_position,
+                "btn_lengths": src.btn_lengths,
             }
         )
 
@@ -606,7 +608,9 @@ def enrich_from_rpscrape(
                         jockey_id = COALESCE(tmp.jockey_id, horse_history.jockey_id),
                         weight_lbs = COALESCE(tmp.weight_lbs, horse_history.weight_lbs),
                         official_rating = COALESCE(tmp.official_rating, horse_history.official_rating),
-                        headgear = COALESCE(tmp.headgear, horse_history.headgear)
+                        headgear = COALESCE(tmp.headgear, horse_history.headgear),
+                        finishing_position = COALESCE(tmp.finishing_position, horse_history.finishing_position),
+                        btn_lengths = COALESCE(tmp.btn_lengths, horse_history.btn_lengths)
                     FROM tmp_history_updates tmp
                     WHERE horse_history.history_id = tmp.history_id
                     """
