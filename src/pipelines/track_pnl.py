@@ -1,9 +1,11 @@
 """
-Track P&L from daily value bets against settled results.
+Track P&L from daily value bets and top picks against settled results.
 
-Reads the bet log (logs/daily_bets.csv), joins with actual results from the DB,
-and computes P&L at the backed price (the scraped odds the edge was judged on),
-keeping BSP alongside as a benchmark. 1-unit level stakes.
+Reads the bet log (logs/daily_bets.csv) and top picks log (logs/daily_top_picks.csv),
+joins with actual results from the DB, and prints both side by side.
+
+Value bets settle at the backed price (BSP as benchmark). Top picks settle at BSP
+(1-unit level stakes on the model's #1-rated horse per race).
 
 Usage:
     python -m src.pipelines.track_pnl                          # all-time summary
@@ -15,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 
@@ -28,7 +31,9 @@ if str(SRC_ROOT) not in sys.path:
 from ingestion.db_connect import get_db
 
 BETS_LOG = ROOT / "logs" / "daily_bets.csv"
+TOP_PICKS_LOG = ROOT / "logs" / "daily_top_picks.csv"
 PNL_OUTPUT = ROOT / "logs" / "pnl_tracker.csv"
+TOP_PICKS_PNL_OUTPUT = ROOT / "logs" / "top_picks_pnl_tracker.csv"
 
 
 def _parse_date(s: str) -> date:
@@ -42,11 +47,13 @@ def _normalize_bfsp_id(value: str | None) -> str | None:
     return text.replace("bfsp_1.", "bfsp_")
 
 
-def load_bets(date_from: date | None = None, date_to: date | None = None) -> pd.DataFrame:
-    if not BETS_LOG.exists():
+def _load_dated_csv(
+    log_path: Path, date_from: date | None = None, date_to: date | None = None,
+) -> pd.DataFrame:
+    if not log_path.exists():
         return pd.DataFrame()
 
-    df = pd.read_csv(BETS_LOG)
+    df = pd.read_csv(log_path)
     df["date"] = pd.to_datetime(df["date"]).dt.date
     if date_from:
         df = df[df["date"] >= date_from]
@@ -54,6 +61,17 @@ def load_bets(date_from: date | None = None, date_to: date | None = None) -> pd.
         df = df[df["date"] <= date_to]
     df["race_id_norm"] = df["race_id"].apply(_normalize_bfsp_id)
     df["runner_id_norm"] = df["runner_id"].apply(_normalize_bfsp_id)
+    return df
+
+
+def load_bets(date_from: date | None = None, date_to: date | None = None) -> pd.DataFrame:
+    return _load_dated_csv(BETS_LOG, date_from, date_to)
+
+
+def load_top_picks(date_from: date | None = None, date_to: date | None = None) -> pd.DataFrame:
+    df = _load_dated_csv(TOP_PICKS_LOG, date_from, date_to)
+    if not df.empty:
+        df["stake"] = 1.0
     return df
 
 
@@ -126,24 +144,24 @@ def apply_race_type_categories(bets: pd.DataFrame, db_path: str) -> pd.DataFrame
 
 
 def _settle_profit(odds: float, won: bool, stake: float) -> float:
-    """Profit for a settled bet at decimal `odds`: (odds-1)*stake on a win, else -stake."""
     return (odds - 1) * stake if won else -stake
+
+
+def _merge_with_results(df: pd.DataFrame, results: pd.DataFrame) -> pd.DataFrame:
+    merged = df.merge(results, on="runner_id_norm", how="left", suffixes=("", "_actual"))
+    merged["settled"] = merged["sp_decimal"].notna()
+    merged["won_actual"] = merged["won"].fillna(False)
+    merged["sp"] = merged["sp_decimal"].fillna(0)
+    return merged
 
 
 def compute_pnl(bets: pd.DataFrame, results: pd.DataFrame) -> pd.DataFrame:
     if bets.empty:
         return pd.DataFrame()
 
-    merged = bets.merge(results, on="runner_id_norm", how="left", suffixes=("", "_actual"))
+    merged = _merge_with_results(bets, results)
 
-    merged["settled"] = merged["sp_decimal"].notna()
-    merged["won_actual"] = merged["won"].fillna(False)
-    merged["sp"] = merged["sp_decimal"].fillna(0)
-
-    # Headline P&L settles at the price we actually backed (the scraped odds the edge
-    # was judged on); profit_bsp keeps the BSP figure as the backtest benchmark. Fall
-    # back to SP only if a back price is missing, so no settled bet is silently dropped.
-    def _profit(r, odds_col):
+    def _profit(r: pd.Series, odds_col: str) -> float:
         if not r["settled"]:
             return 0.0
         odds = r[odds_col]
@@ -157,7 +175,24 @@ def compute_pnl(bets: pd.DataFrame, results: pd.DataFrame) -> pd.DataFrame:
     return merged
 
 
-def _print_category_summary(settled: pd.DataFrame, label: str, indent: int = 0):
+def compute_top_picks_pnl(picks: pd.DataFrame, results: pd.DataFrame) -> pd.DataFrame:
+    if picks.empty:
+        return pd.DataFrame()
+
+    merged = _merge_with_results(picks, results)
+
+    merged["profit"] = merged.apply(
+        lambda r: _settle_profit(r["sp"], r["won_actual"], r["stake"]) if r["settled"] else 0.0,
+        axis=1,
+    )
+
+    return merged
+
+
+# ── Printing ───────────────────────────────────────────────────────────
+
+
+def _print_category_summary(settled: pd.DataFrame, label: str, indent: int = 0) -> None:
     staked = settled["stake"].sum()
     profit = settled["profit"].sum()
     profit_bsp = settled["profit_bsp"].sum()
@@ -168,7 +203,47 @@ def _print_category_summary(settled: pd.DataFrame, label: str, indent: int = 0):
           f"P&L: {profit:+.2f}u (ROI {roi:+.1f}%)  |  BSP: {profit_bsp:+.2f}u (ROI {roi_bsp:+.1f}%)")
 
 
-def print_single_day(pnl: pd.DataFrame, target_date: date):
+def _print_tp_category_summary(settled: pd.DataFrame, label: str, indent: int = 0) -> None:
+    staked = settled["stake"].sum()
+    profit = settled["profit"].sum()
+    roi = profit / staked * 100 if staked > 0 else 0
+    winners = int(settled["won_actual"].sum())
+    sr = winners / len(settled) * 100 if len(settled) > 0 else 0
+    prefix = " " * indent
+    print(f"  {prefix}{label:<10} Picks: {len(settled):<5} W: {winners:<4} SR: {sr:.0f}%  |  "
+          f"P&L: {profit:+.2f}u (ROI {roi:+.1f}%)")
+
+
+def _range_label(date_from: date | None, date_to: date | None) -> str:
+    if date_from and date_to:
+        return f"{date_from} to {date_to}"
+    if date_from:
+        return f"From {date_from}"
+    if date_to:
+        return f"Up to {date_to}"
+    return "All-time"
+
+
+def _print_category_breakdown(
+    settled: pd.DataFrame, summary_fn: Callable[[pd.DataFrame, str, int], None],
+) -> None:
+    flat = settled[settled["category"] == "flat"]
+    hurdle = settled[settled["category"] == "hurdle"]
+    chase = settled[settled["category"] == "chase"]
+    jumps_extra = settled[settled["category"] == "jumps"]
+    jumps = pd.concat([hurdle, chase, jumps_extra], ignore_index=True)
+
+    summary_fn(flat, "FLAT")
+    summary_fn(jumps, "JUMPS")
+    summary_fn(hurdle, "HURDLE", indent=2)
+    summary_fn(chase, "CHASE", indent=2)
+
+    known = {"flat", "hurdle", "chase", "jumps"}
+    for cat in sorted(set(settled["category"].dropna().unique()) - known):
+        summary_fn(settled[settled["category"] == cat], cat.upper())
+
+
+def print_single_day(pnl: pd.DataFrame, target_date: date) -> None:
     settled = pnl[pnl["settled"]].copy()
     if settled.empty:
         print(f"No settled bets for {target_date}.")
@@ -197,61 +272,100 @@ def print_single_day(pnl: pd.DataFrame, target_date: date):
         _print_category_summary(cat_settled, cat.upper())
 
     print(f"  {'='*70}")
-    total_staked = settled["stake"].sum()
-    total_profit = settled["profit"].sum()
-    total_profit_bsp = settled["profit_bsp"].sum()
-    roi = total_profit / total_staked * 100 if total_staked > 0 else 0
-    roi_bsp = total_profit_bsp / total_staked * 100 if total_staked > 0 else 0
-    print(f"  {'TOTAL':<10} Bets: {len(settled):<5} |  "
-          f"P&L: {total_profit:+.2f}u (ROI {roi:+.1f}%)  |  BSP: {total_profit_bsp:+.2f}u (ROI {roi_bsp:+.1f}%)")
+    _print_category_summary(settled, "TOTAL")
 
 
-def print_range(pnl: pd.DataFrame, date_from: date | None, date_to: date | None):
+def print_range(pnl: pd.DataFrame, date_from: date | None, date_to: date | None) -> None:
     settled = pnl[pnl["settled"]].copy()
     if settled.empty:
         print("No settled bets in this range.")
         return
 
-    label = "All-time"
-    if date_from and date_to:
-        label = f"{date_from} to {date_to}"
-    elif date_from:
-        label = f"From {date_from}"
-    elif date_to:
-        label = f"Up to {date_to}"
-
-    print(f"\n  {label}")
-
-    flat = settled[settled["category"] == "flat"]
-    hurdle = settled[settled["category"] == "hurdle"]
-    chase = settled[settled["category"] == "chase"]
-    jumps_extra = settled[settled["category"] == "jumps"]
-    jumps = pd.concat([hurdle, chase, jumps_extra], ignore_index=True)
-
-    _print_category_summary(flat, "FLAT")
-    _print_category_summary(jumps, "JUMPS")
-    _print_category_summary(hurdle, "HURDLE", indent=2)
-    _print_category_summary(chase, "CHASE", indent=2)
-
-    known = {"flat", "hurdle", "chase", "jumps"}
-    for cat in sorted(set(settled["category"].dropna().unique()) - known):
-        _print_category_summary(settled[settled["category"] == cat], cat.upper())
-
-    total_staked = settled["stake"].sum()
-    total_profit = settled["profit"].sum()
-    total_profit_bsp = settled["profit_bsp"].sum()
-    roi = total_profit / total_staked * 100 if total_staked > 0 else 0
-    roi_bsp = total_profit_bsp / total_staked * 100 if total_staked > 0 else 0
-    print(f"  {'TOTAL':<10} Bets: {len(settled):<5} |  "
-          f"P&L: {total_profit:+.2f}u (ROI {roi:+.1f}%)  |  BSP: {total_profit_bsp:+.2f}u (ROI {roi_bsp:+.1f}%)")
+    print(f"\n  {_range_label(date_from, date_to)}")
+    _print_category_breakdown(settled, _print_category_summary)
+    _print_category_summary(settled, "TOTAL")
 
     pending = pnl[~pnl["settled"]]
     if not pending.empty:
         print(f"  ({len(pending)} bets still pending results)")
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Track P&L from daily value bets")
+def print_top_picks_single_day(pnl: pd.DataFrame, target_date: date) -> None:
+    settled = pnl[pnl["settled"]].copy()
+    if settled.empty:
+        print(f"No settled top picks for {target_date}.")
+        return
+
+    print(f"\n  {target_date}")
+
+    for cat in sorted(settled["category"].dropna().unique()):
+        cat_settled = settled[settled["category"] == cat]
+        print(f"  {'-'*55}")
+        print(f"  {cat.upper()}")
+        print(f"  {'Horse':<22} {'Course':<12} {'Time':<6} {'SP':>6} {'W':>3} {'P&L':>8}")
+        print(f"  {'-'*55}")
+
+        for _, r in cat_settled.sort_values("time").iterrows():
+            horse = str(r.get("horse", "?"))[:21]
+            course = str(r.get("course", ""))[:11]
+            time_str = str(r.get("time", ""))[:5]
+            sp = f"{r['sp']:.1f}" if r["sp"] > 0 else "-"
+            won_str = "Y" if r["won_actual"] else ""
+            pnl_str = f"{r['profit']:+.2f}"
+            print(f"  {horse:<22} {course:<12} {time_str:<6} {sp:>6} {won_str:>3} {pnl_str:>8}")
+
+        _print_tp_category_summary(cat_settled, cat.upper())
+
+    print(f"  {'='*55}")
+    _print_tp_category_summary(settled, "TOTAL")
+
+
+def print_top_picks_range(pnl: pd.DataFrame, date_from: date | None, date_to: date | None) -> None:
+    settled = pnl[pnl["settled"]].copy()
+    if settled.empty:
+        print("No settled top picks in this range.")
+        return
+
+    print(f"\n  {_range_label(date_from, date_to)}")
+    _print_category_breakdown(settled, _print_tp_category_summary)
+    _print_tp_category_summary(settled, "TOTAL")
+
+    pending = pnl[~pnl["settled"]]
+    if not pending.empty:
+        print(f"  ({len(pending)} picks still pending results)")
+
+
+# ── Tracker CSV ────────────────────────────────────────────────────────
+
+
+def _write_daily_tracker(settled: pd.DataFrame, output_path: Path, has_bsp: bool = True) -> None:
+    agg_dict: dict[str, tuple[str, str]] = {
+        "bets": ("runner_id", "count"),
+        "winners": ("won_actual", "sum"),
+        "total_staked": ("stake", "sum"),
+        "total_profit": ("profit", "sum"),
+    }
+    if has_bsp:
+        agg_dict["total_profit_bsp"] = ("profit_bsp", "sum")
+
+    daily = settled.groupby("date").agg(**agg_dict).reset_index()
+    daily["roi_pct"] = (daily["total_profit"] / daily["total_staked"] * 100).round(1)
+    daily["cumulative_profit"] = daily["total_profit"].cumsum().round(2)
+    daily["cumulative_staked"] = daily["total_staked"].cumsum()
+    daily["cumulative_roi_pct"] = (daily["cumulative_profit"] / daily["cumulative_staked"] * 100).round(1)
+    daily["total_profit"] = daily["total_profit"].round(2)
+
+    if has_bsp:
+        daily["cumulative_profit_bsp"] = daily["total_profit_bsp"].cumsum().round(2)
+        daily["cumulative_roi_bsp_pct"] = (daily["cumulative_profit_bsp"] / daily["cumulative_staked"] * 100).round(1)
+        daily["total_profit_bsp"] = daily["total_profit_bsp"].round(2)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    daily.to_csv(output_path, index=False)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Track P&L from daily value bets and top picks")
     parser.add_argument("--date", type=str, default=None, help="Single date (YYYY-MM-DD)")
     parser.add_argument("--from", type=str, default=None, dest="date_from", help="Start date (YYYY-MM-DD)")
     parser.add_argument("--to", type=str, default=None, dest="date_to", help="End date (YYYY-MM-DD)")
@@ -273,48 +387,57 @@ def main():
     single_day = args.date is not None
 
     bets = load_bets(date_from, date_to)
-    if bets.empty:
-        print("No bets found in log. Run daily_predictions first.")
+    picks = load_top_picks(date_from, date_to)
+
+    if bets.empty and picks.empty:
+        print("No bets or top picks found. Run daily_predictions first.")
         return
 
     if args.split_jumps:
-        bets = apply_race_type_categories(bets, db_path)
+        if not bets.empty:
+            bets = apply_race_type_categories(bets, db_path)
+        if not picks.empty:
+            picks = apply_race_type_categories(picks, db_path)
 
-    results = fetch_results(
-        bets["runner_id"].tolist(),
-        bets["runner_id_norm"].tolist(),
-        db_path,
-    )
-    pnl = compute_pnl(bets, results)
+    all_runner_ids: list[str] = []
+    all_runner_ids_norm: list[str] = []
+    for df in [bets, picks]:
+        if not df.empty:
+            all_runner_ids.extend(df["runner_id"].tolist())
+            all_runner_ids_norm.extend(df["runner_id_norm"].tolist())
 
-    if pnl.empty or not pnl["settled"].any():
-        print("No settled bets yet. Run collect_results to fetch actual SPs.")
-        return
+    results = fetch_results(all_runner_ids, all_runner_ids_norm, db_path)
 
-    if single_day:
-        print_single_day(pnl, date_from)
-    else:
-        print_range(pnl, date_from, date_to)
+    has_any_settled = False
 
-        settled = pnl[pnl["settled"]].copy()
-        daily = settled.groupby("date").agg(
-            bets=("runner_id", "count"),
-            winners=("won_actual", "sum"),
-            total_staked=("stake", "sum"),
-            total_profit=("profit", "sum"),
-            total_profit_bsp=("profit_bsp", "sum"),
-        ).reset_index()
-        daily["roi_pct"] = (daily["total_profit"] / daily["total_staked"] * 100).round(1)
-        daily["cumulative_profit"] = daily["total_profit"].cumsum().round(2)
-        daily["cumulative_staked"] = daily["total_staked"].cumsum()
-        daily["cumulative_roi_pct"] = (daily["cumulative_profit"] / daily["cumulative_staked"] * 100).round(1)
-        daily["cumulative_profit_bsp"] = daily["total_profit_bsp"].cumsum().round(2)
-        daily["cumulative_roi_bsp_pct"] = (daily["cumulative_profit_bsp"] / daily["cumulative_staked"] * 100).round(1)
-        daily["total_profit"] = daily["total_profit"].round(2)
-        daily["total_profit_bsp"] = daily["total_profit_bsp"].round(2)
+    if not bets.empty:
+        pnl = compute_pnl(bets, results)
+        if not pnl.empty and pnl["settled"].any():
+            has_any_settled = True
+            print(f"\n  {'='*70}")
+            print(f"  VALUE BETS  (edge-filtered, settled at back odds)")
+            print(f"  {'='*70}")
+            if single_day:
+                print_single_day(pnl, date_from)
+            else:
+                print_range(pnl, date_from, date_to)
+                _write_daily_tracker(pnl[pnl["settled"]].copy(), PNL_OUTPUT, has_bsp=True)
 
-        PNL_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-        daily.to_csv(PNL_OUTPUT, index=False)
+    if not picks.empty:
+        tp_pnl = compute_top_picks_pnl(picks, results)
+        if not tp_pnl.empty and tp_pnl["settled"].any():
+            has_any_settled = True
+            print(f"\n  {'='*70}")
+            print(f"  TOP PICKS  (model #1 per race, settled at BSP)")
+            print(f"  {'='*70}")
+            if single_day:
+                print_top_picks_single_day(tp_pnl, date_from)
+            else:
+                print_top_picks_range(tp_pnl, date_from, date_to)
+                _write_daily_tracker(tp_pnl[tp_pnl["settled"]].copy(), TOP_PICKS_PNL_OUTPUT, has_bsp=False)
+
+    if not has_any_settled:
+        print("No settled bets or picks yet. Run collect_results to fetch actual SPs.")
 
 
 if __name__ == "__main__":

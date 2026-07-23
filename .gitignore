@@ -16,7 +16,8 @@ models/*.cbm
 models/*.lgbm
 logs/*.csv
 logs/*.json
-logs/*_latest.txt
+logs/*.txt
+logs/*.log
 catboost_info/
 reports/
 
@@ -31,3 +32,4 @@ data/raw/
 # Betfair local TLS files
 client-*.key
 client-*.crt
+*.pem
