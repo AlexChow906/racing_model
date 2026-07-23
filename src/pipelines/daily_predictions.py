@@ -671,6 +671,21 @@ def main():
         else:
             print(f"  {existing} races already in DB (skipping insert)", flush=True)
 
+        racecard_json = ROOT / "data" / "raw" / "rpscrape_repo" / "racecards" / f"{target_date}.json"
+        if racecard_json.exists():
+            print("Enriching with racecard metadata...", flush=True)
+            try:
+                from ingestion.racecard_enrich import enrich_from_racecards
+                enrich_from_racecards(
+                    db_path=ROOT / "racing.duckdb",
+                    racecard_json_path=racecard_json,
+                    target_date=target_date,
+                )
+            except Exception as e:
+                print(f"  WARNING: Racecard enrichment failed: {e}", flush=True)
+        else:
+            print(f"  No racecard JSON for {target_date} (scoring with Betfair data only)", flush=True)
+
         if not args.skip_rebuild:
             print("Rebuilding feature store (this takes a few minutes)...", flush=True)
             rows = rebuild_features()
